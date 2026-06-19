@@ -84,6 +84,8 @@ export default function ScanPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState("");
   const [scanId, setScanId] = useState<string | null>(null);
+  const [shareSlug, setShareSlug] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   // Load scan from history (?id=xxx)
   useEffect(() => {
@@ -266,6 +268,45 @@ export default function ScanPage() {
       await navigator.clipboard.writeText(coverLetter.coverLetter);
     } catch {
       // Fallback
+    }
+  }
+
+  async function handlePublish() {
+    if (!parsedResume || !scanId) return;
+    setPublishing(true);
+    try {
+      const res = await fetch("/api/resume-pages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({
+          scan_id: scanId,
+          parsed_resume: parsedResume,
+          template_id: templateId,
+          accent_color: accentColor,
+        }),
+      });
+      const data = await res.json();
+      if (res.status === 403) { setUpgradeReason(data.error || ""); setShowUpgradeModal(true); return; }
+      if (!res.ok) throw new Error(data.error || "Publish failed.");
+      setShareSlug(data.slug);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Publish nahi ho paya.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function handleUnpublish() {
+    if (!shareSlug) return;
+    try {
+      await fetch(`/api/resume-pages/${shareSlug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ published: false }),
+      });
+      setShareSlug(null);
+    } catch {
+      setError("Unpublish nahi ho paya.");
     }
   }
 
@@ -622,6 +663,41 @@ export default function ScanPage() {
               Word mein le ja
             </button>
           </div>
+
+          {scanId && (
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <div className="mb-2 text-xs font-semibold text-slate-500">Share resume link</div>
+              {shareSlug ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                    Live at /r/{shareSlug.slice(0, 8)}…
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/r/${shareSlug}`);
+                    }}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium transition hover:bg-slate-50"
+                  >
+                    Copy link
+                  </button>
+                  <button
+                    onClick={handleUnpublish}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:border-red-200 hover:text-red-500"
+                  >
+                    Unpublish
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handlePublish}
+                  disabled={publishing}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium transition hover:bg-brand/10 hover:text-brand disabled:opacity-50"
+                >
+                  {publishing ? "Publishing…" : "Publish karo 🔗"}
+                </button>
+              )}
+            </div>
+          )}
         </section>
       )}
 

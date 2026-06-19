@@ -97,6 +97,17 @@ export interface TemplateInfo {
   description: string;
 }
 
+export interface ResumePage {
+  slug: string;
+  scan_id: string;
+  user_id: string;
+  parsed_resume: JsonResume;
+  template_id: TemplateId;
+  accent_color: string;
+  published: boolean;
+  created_at: string;
+}
+
 export interface RewriteResult {
   /** The rewritten resume as plain text (one logical line per row) */
   resume: string;

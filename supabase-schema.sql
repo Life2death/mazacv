@@ -83,3 +83,18 @@ alter table applications enable row level security;
 create policy "Users can only see their own applications"
   on applications for all
   using (auth.uid() = user_id);
+
+-- Public resume share links (Pro feature).
+create table if not exists resume_pages (
+  slug text primary key,
+  scan_id uuid references scans (id) on delete cascade not null,
+  user_id uuid references auth.users (id) on delete cascade not null,
+  parsed_resume jsonb not null,
+  template_id text not null default 'classic',
+  accent_color text not null default '#4f46e5',
+  published boolean not null default false,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_resume_pages_user_id on resume_pages (user_id);
+create index if not exists idx_resume_pages_scan_id on resume_pages (scan_id);
