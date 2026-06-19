@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
+import { detectAts } from "@/lib/ats-detection";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,7 @@ export async function PATCH(
       company?: string;
       role?: string;
       jd?: string;
+      job_url?: string | null;
       score?: number;
       stage?: string;
       scan_id?: string | null;
@@ -33,6 +35,11 @@ export async function PATCH(
     if (body.score !== undefined) updates.score = body.score;
     if (body.stage !== undefined) updates.stage = body.stage;
     if (body.scan_id !== undefined) updates.scan_id = body.scan_id;
+    if (body.job_url !== undefined) {
+      const jobUrl = body.job_url?.trim() || null;
+      updates.job_url = jobUrl;
+      updates.ats = jobUrl ? detectAts(jobUrl) : null;
+    }
 
     const { createClient } = await import("@supabase/supabase-js");
     const sb = createClient(

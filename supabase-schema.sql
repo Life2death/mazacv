@@ -71,6 +71,8 @@ create table if not exists applications (
   company text not null,
   role text not null,
   jd text,
+  job_url text,
+  ats text,
   score integer,
   stage text not null default 'saved'
     check (stage in ('saved','applied','interview','offer','rejected')),

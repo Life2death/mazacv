@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
+import { detectAts } from "@/lib/ats-detection";
 
 export const runtime = "nodejs";
 
@@ -48,6 +49,7 @@ export async function POST(req: Request) {
       company: string;
       role: string;
       jd?: string;
+      job_url?: string;
       score?: number;
       stage?: string;
       scan_id?: string;
@@ -59,6 +61,9 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const jobUrl = body.job_url?.trim() || null;
+    const ats = jobUrl ? detectAts(jobUrl) : null;
 
     const { createClient } = await import("@supabase/supabase-js");
     const sb = createClient(
@@ -73,6 +78,8 @@ export async function POST(req: Request) {
         company: body.company.trim(),
         role: body.role.trim(),
         jd: body.jd ?? null,
+        job_url: jobUrl,
+        ats,
         score: body.score ?? null,
         stage: body.stage ?? "saved",
         scan_id: body.scan_id ?? null,

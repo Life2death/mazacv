@@ -19,6 +19,8 @@ interface Application {
   company: string;
   role: string;
   jd: string | null;
+  job_url: string | null;
+  ats: string | null;
   score: number | null;
   stage: string;
   scan_id: string | null;
@@ -105,6 +107,13 @@ function DraggableCard({ app }: { app: Application }) {
     >
       <div className="text-sm font-semibold text-slate-900">{app.role}</div>
       <div className="text-xs text-slate-500">{app.company}</div>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {app.ats && (
+          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
+            {app.ats}
+          </span>
+        )}
+      </div>
       {app.score !== null && (
         <div className="mt-1.5">
           <span
@@ -127,21 +136,28 @@ function DraggableCard({ app }: { app: Application }) {
 function AddModal({ open, onClose, onSave }: {
   open: boolean;
   onClose: () => void;
-  onSave: (data: { company: string; role: string; jd?: string; stage?: string }) => void;
+  onSave: (data: { company: string; role: string; jd?: string; job_url?: string; stage?: string }) => void;
 }) {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [jd, setJd] = useState("");
+  const [jobUrl, setJobUrl] = useState("");
 
   if (!open) return null;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!company.trim() || !role.trim()) return;
-    onSave({ company: company.trim(), role: role.trim(), jd: jd.trim() || undefined });
+    onSave({
+      company: company.trim(),
+      role: role.trim(),
+      jd: jd.trim() || undefined,
+      job_url: jobUrl.trim() || undefined,
+    });
     setCompany("");
     setRole("");
     setJd("");
+    setJobUrl("");
   }
 
   return (
@@ -174,6 +190,16 @@ function AddModal({ open, onClose, onSave }: {
               className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:border-brand focus:outline-none"
               placeholder="SDE 2"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500">Job URL (optional)</label>
+            <input
+              value={jobUrl}
+              onChange={(e) => setJobUrl(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:border-brand focus:outline-none"
+              placeholder="https://boards.greenhouse.io/..."
+            />
+            <p className="mt-1 text-[10px] text-slate-400">Auto-detect karega ATS system</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500">JD (optional)</label>
@@ -234,7 +260,7 @@ export default function TrackerPage() {
     STAGES.map((s) => [s, applications.filter((a) => a.stage === s)])
   ) as Record<string, Application[]>;
 
-  async function handleSave(data: { company: string; role: string; jd?: string; stage?: string }) {
+  async function handleSave(data: { company: string; role: string; jd?: string; job_url?: string; stage?: string }) {
     try {
       const res = await fetch("/api/applications", {
         method: "POST",
@@ -369,11 +395,18 @@ export default function TrackerPage() {
                       <div className="font-display font-semibold text-slate-900">{app.role}</div>
                       <div className="text-xs text-slate-500">{app.company}</div>
                     </div>
-                    {app.score !== null && (
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${app.score >= 75 ? "bg-green-100 text-green-700" : app.score >= 45 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
-                        {app.score}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {app.ats && (
+                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
+                          {app.ats}
+                        </span>
+                      )}
+                      {app.score !== null && (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${app.score >= 75 ? "bg-green-100 text-green-700" : app.score >= 45 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
+                          {app.score}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${STAGE_COLORS[app.stage].split(" ")[0]} ${STAGE_COLORS[app.stage].split(" ")[1]}`}>
