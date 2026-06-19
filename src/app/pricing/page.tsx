@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { NavBar } from "@/components/NavBar";
 import { useAuth } from "@/components/AuthProvider";
 import { openRazorpayCheckout } from "@/lib/razorpay";
+import type { Credits } from "@/lib/types";
 
 function PricingInner() {
   const router = useRouter();
@@ -64,6 +65,43 @@ function PricingInner() {
     }
   }
 
+  async function handleBuyOneshot() {
+    setError("");
+    setSubscribing(true);
+
+    try {
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      const res = await fetch("/api/razorpay/create-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token ?? ""}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create order.");
+
+      const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? data.key_id;
+      await openRazorpayCheckout({
+        key_id: keyId,
+        order_id: data.order_id,
+        name: "MazaCV",
+        description: "Ek Baar — 1 AI Tailor + 1 Export",
+        prefill: { email: user.email ?? "" },
+        callback_url: `${window.location.origin}/api/razorpay/verify-order`,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Arre, kuch locha ho gaya. Phirse try kar.");
+    } finally {
+      setSubscribing(false);
+    }
+  }
+
   if (upgraded) {
     return (
       <main className="mx-auto flex min-h-screen max-w-6xl flex-col px-4">
@@ -94,7 +132,7 @@ function PricingInner() {
           Koi tension nahi — kabhi bhi cancel kar sakte ho!
         </p>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-2">
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
           {/* Free plan */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="font-display text-xl font-bold text-slate-900">Bindaas</h2>
@@ -119,6 +157,52 @@ function PricingInner() {
             >
               Score nikaal — free!
             </Link>
+          </div>
+
+          {/* Ek Baar (one-shot) */}
+          <div className="relative rounded-2xl border-2 border-amber-300 bg-white p-6 shadow-lg shadow-amber-200/40">
+            <span className="absolute -top-3 right-6 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+              One-shot
+            </span>
+            <h2 className="font-display text-xl font-bold text-slate-900">Ek Baar</h2>
+            <p className="mt-1 text-xs text-slate-400">Sirf ek baar — lifetime validity</p>
+
+            <div className="mt-6 font-display text-4xl font-extrabold text-amber-600">
+              ₹49
+              <span className="text-base font-normal text-slate-400"> one-time</span>
+            </div>
+            <p className="mt-1 text-xs text-amber-700">1 AI tailor + 1 export</p>
+
+            <ul className="mt-6 space-y-3 text-sm text-slate-600">
+              <li className="flex items-center gap-2">✅ <span>Unlimited ATS scoring</span></li>
+              <li className="flex items-center gap-2">✅ <span>1 AI resume tailoring</span></li>
+              <li className="flex items-center gap-2">✅ <span>1 PDF + Word export (6 templates)</span></li>
+              <li className="flex items-center gap-2">— <span className="text-slate-300">Cover letter generator</span></li>
+              <li className="flex items-center gap-2">— <span className="text-slate-300">Dashboard aur history</span></li>
+              <li className="flex items-center gap-2">✅ <span>Kabhi expire nahi hota</span></li>
+            </ul>
+
+            <button
+              onClick={handleBuyOneshot}
+              disabled={subscribing}
+              className="mt-6 flex w-full items-center justify-center rounded-xl bg-amber-500 py-3 font-display font-semibold text-white shadow-lg shadow-amber-500/30 transition hover:bg-amber-600 disabled:opacity-50"
+            >
+              {subscribing
+                ? "Processing…"
+                : user
+                  ? "Ek Baar le lo ⚡ — ₹49"
+                  : "Login karke lo →"}
+            </button>
+
+            <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-400">
+              <span>UPI</span>
+              <span>•</span>
+              <span>Cards</span>
+              <span>•</span>
+              <span>Net Banking</span>
+              <span>•</span>
+              <span>Wallet</span>
+            </div>
           </div>
 
           {/* Pro plan */}

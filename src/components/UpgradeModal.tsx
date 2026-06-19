@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/components/AuthProvider";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -9,7 +12,40 @@ interface UpgradeModalProps {
 }
 
 export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
+  const { user, session } = useAuth();
+  const [buying, setBuying] = useState(false);
+
   if (!open) return null;
+
+  async function handleBuyOneshot() {
+    setBuying(true);
+    try {
+      if (!user) return; // shouldn't happen — modal opens when user is signed in
+      const res = await fetch("/api/razorpay/create-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token ?? ""}`,
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create order.");
+
+      const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? data.key_id;
+      await openRazorpayCheckout({
+        key_id: keyId,
+        order_id: data.order_id,
+        name: "MazaCV",
+        description: "Ek Baar — 1 AI Tailor + 1 Export",
+        prefill: { email: user.email ?? "" },
+        callback_url: `${window.location.origin}/api/razorpay/verify-order`,
+      });
+    } catch {
+      // Silently fail — user can retry
+    } finally {
+      setBuying(false);
+    }
+  }
 
   return (
     <div
@@ -45,6 +81,24 @@ export function UpgradeModal({ open, onClose, reason }: UpgradeModalProps) {
         >
           Pro le lo 🚀
         </Link>
+
+        <div className="relative my-4 flex items-center gap-3">
+          <div className="flex-1 border-t border-slate-200" />
+          <span className="text-xs text-slate-400">ya</span>
+          <div className="flex-1 border-t border-slate-200" />
+        </div>
+
+        <button
+          onClick={handleBuyOneshot}
+          disabled={buying}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-amber-400 bg-amber-50 py-3 font-display font-semibold text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
+        >
+          {buying ? "Processing…" : "Ek Baar le lo ⚡ — sirf ₹49"}
+        </button>
+        <p className="mt-1 text-center text-[10px] text-slate-400">
+          1 AI tailor + 1 export — kabhi expire nahi hota
+        </p>
+
         <button
           onClick={onClose}
           className="mt-3 w-full text-sm font-medium text-slate-400 transition hover:text-slate-600"

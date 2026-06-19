@@ -31,7 +31,8 @@ function loadRazorpayScript(): Promise<void> {
 
 interface RazorpayOptions {
   key_id: string;
-  subscription_id: string;
+  subscription_id?: string;
+  order_id?: string;
   name: string;
   description: string;
   prefill?: { email?: string; contact?: string };

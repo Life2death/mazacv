@@ -5,18 +5,21 @@
  * everything is allowed and limits are not enforced. Once you add Supabase keys
  * and the `usage` table, limits kick in automatically.
  *
- * Free plan:  3 scores/day, 1 AI rewrite / month, no export
+ * Free plan:  3 scores/day + 1 AI rewrite / month, no export, no cover letter
  * Pro plan:   unlimited
+ * Ek Baar (credits): one-shot rewrite + export
  */
+
+import type { Credits } from "./types";
 
 export type Plan = "free" | "pro";
 export type Action = "score" | "rewrite" | "export" | "cover-letter";
 
 export const FREE_LIMITS: Record<Action, number> = {
-  score: 3, // per day
-  rewrite: 1, // per month
-  "cover-letter": 0, // Pro only
-  export: 0, // Pro only
+  score: 3,
+  rewrite: 1,
+  "cover-letter": 0,
+  export: 0,
 };
 
 interface CheckResult {
@@ -27,19 +30,24 @@ interface CheckResult {
 
 const supabaseConfigured =
   !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAnonConfigured =
+  !!process.env.SUPABASE_URL && !!process.env.SUPABASE_ANON_KEY;
 
-/**
- * Check whether `userId` may perform `action`. When auth/Supabase is not
- * configured we allow everything so the core tool runs out of the box.
- */
 export async function checkAndConsume(
   userId: string | null,
   plan: Plan,
-  action: Action
+  action: Action,
+  credits: Credits = {}
 ): Promise<CheckResult> {
   if (plan === "pro") return { allowed: true };
+
+  // Check one-shot credits first (only for gated actions)
+  if (action !== "score" && (credits[action] ?? 0) > 0) {
+    await consumeCredit(userId, action);
+    return { allowed: true, remaining: (credits[action] ?? 0) - 1 };
+  }
+
   if (!supabaseConfigured || !userId) {
-    // Dev / anonymous mode — no enforcement. See README to enable limits.
     return { allowed: true };
   }
 
@@ -47,7 +55,7 @@ export async function checkAndConsume(
   if (limit === 0) {
     return {
       allowed: false,
-      reason: `${action} is a Pro feature. Upgrade to unlock it.`,
+      reason: `Yeh feature Pro aur Ek Baar users ke liye hai — upgrade karo!`,
     };
   }
 
@@ -57,13 +65,34 @@ export async function checkAndConsume(
       allowed: false,
       reason: `Free plan limit reached (${limit} ${action}${
         action === "score" ? "/day" : "/month"
-      }). Upgrade to Pro for unlimited.`,
+      }). Upgrade to Pro for unlimited ya Ek Baar le lo.`,
       remaining: 0,
     };
   }
 
   await incrementUsage(userId, action);
   return { allowed: true, remaining: limit - used - 1 };
+}
+
+async function consumeCredit(userId: string | null, action: Action): Promise<void> {
+  if (!supabaseAnonConfigured || !userId) return;
+  const { createClient } = await import("@supabase/supabase-js");
+  const client = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+  const { data: profile } = await client
+    .from("profiles")
+    .select("credits")
+    .eq("id", userId)
+    .maybeSingle();
+  const k = action as keyof Credits;
+  const current: Credits = (profile?.credits as Credits) ?? {};
+  const val = (current[k] ?? 0) - 1;
+  await client.from("profiles").upsert({
+    id: userId,
+    credits: { ...current, [k]: val <= 0 ? 0 : val },
+  });
 }
 
 // --- Supabase-backed counters (only called when configured) -----------------

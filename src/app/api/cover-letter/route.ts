@@ -8,8 +8,8 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const { userId, plan } = await getSessionUser(req);
-    const gate = await checkAndConsume(userId, plan, "cover-letter");
+    const { userId, plan, credits } = await getSessionUser(req);
+    const gate = await checkAndConsume(userId, plan, "cover-letter", credits);
     if (!gate.allowed) {
       return NextResponse.json({ error: gate.reason }, { status: 402 });
     }

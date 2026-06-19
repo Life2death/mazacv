@@ -10,8 +10,8 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const { userId, plan } = await getSessionUser(req);
-    const gate = await checkAndConsume(userId, plan, "score");
+    const { userId, plan, credits } = await getSessionUser(req);
+    const gate = await checkAndConsume(userId, plan, "score", credits);
     if (!gate.allowed) {
       return NextResponse.json({ error: gate.reason }, { status: 402 });
     }

@@ -72,6 +72,12 @@ export interface JsonResume {
   }>;
 }
 
+export type Credits = {
+  rewrite?: number;
+  export?: number;
+  "cover-letter"?: number;
+};
+
 export type TemplateId = "classic" | "modern" | "compact" | "split" | "minimal" | "professional";
 
 export interface TemplateInfo {

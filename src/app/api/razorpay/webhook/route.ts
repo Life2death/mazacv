@@ -17,6 +17,25 @@ async function setPlan(userId: string, plan: "free" | "pro") {
   await sb.from("profiles").upsert({ id: userId, plan });
 }
 
+/** Grant one-shot credits (1 rewrite + 1 export). */
+async function grantOneshotCredits(userId: string) {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const { createClient } = await import("@supabase/supabase-js");
+  const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("credits")
+    .eq("id", userId)
+    .maybeSingle();
+  const current: Record<string, number> = (profile?.credits as Record<string, number>) ?? {};
+  const updated = {
+    ...current,
+    rewrite: (current.rewrite ?? 0) + 1,
+    export: (current.export ?? 0) + 1,
+  };
+  await sb.from("profiles").upsert({ id: userId, credits: updated });
+}
+
 export async function POST(req: Request) {
   try {
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -45,6 +64,11 @@ export async function POST(req: Request) {
 
     if (eventType === "subscription.charged") {
       await setPlan(userId, "pro");
+    }
+
+    // One-shot "Ek Baar" order — grant credits
+    if (eventType === "payment.captured" && payment?.notes?.type === "oneshot") {
+      await grantOneshotCredits(userId);
     }
 
     // Downgrade events — subscription is no longer active

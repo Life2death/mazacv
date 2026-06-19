@@ -1,17 +1,10 @@
 import { Plan } from "./usage";
+import type { Credits } from "./types";
 
-/**
- * Minimal auth/plan resolution.
- *
- * For the initial launch the tool works anonymously. When you wire Supabase
- * Auth, read the user's session here and look up their plan from the
- * `profiles` table (set to "pro" by your Stripe webhook on successful payment).
- *
- * Until then this returns an anonymous free user, so the app runs out of box.
- */
 export interface SessionUser {
   userId: string | null;
   plan: Plan;
+  credits: Credits;
 }
 
 export async function getSessionUser(req: Request): Promise<SessionUser> {
@@ -19,12 +12,12 @@ export async function getSessionUser(req: Request): Promise<SessionUser> {
     !!process.env.SUPABASE_URL && !!process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseConfigured) {
-    return { userId: null, plan: "free" };
+    return { userId: null, plan: "free", credits: {} };
   }
 
   const authHeader = req.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return { userId: null, plan: "free" };
+    return { userId: null, plan: "free", credits: {} };
   }
 
   try {
@@ -36,16 +29,20 @@ export async function getSessionUser(req: Request): Promise<SessionUser> {
     );
     const { data } = await client.auth.getUser(token);
     const userId = data.user?.id ?? null;
-    if (!userId) return { userId: null, plan: "free" };
+    if (!userId) return { userId: null, plan: "free", credits: {} };
 
     const { data: profile } = await client
       .from("profiles")
-      .select("plan")
+      .select("plan, credits")
       .eq("id", userId)
       .maybeSingle();
 
-    return { userId, plan: (profile?.plan as Plan) ?? "free" };
+    return {
+      userId,
+      plan: (profile?.plan as Plan) ?? "free",
+      credits: (profile?.credits as Credits) ?? {},
+    };
   } catch {
-    return { userId: null, plan: "free" };
+    return { userId: null, plan: "free", credits: {} };
   }
 }
