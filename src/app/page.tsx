@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ScoreResult, Portal } from "@/lib/types";
+import type { ScoreResult, Portal, CoverLetterResult } from "@/lib/types";
 
 interface ScoreResponse extends ScoreResult {
   resumeText: string;
@@ -99,10 +99,14 @@ export default function Home() {
   const [rewriting, setRewriting] = useState(false);
   const [rewrite, setRewrite] = useState<RewriteResponse | null>(null);
 
+  const [generatingCover, setGeneratingCover] = useState(false);
+  const [coverLetter, setCoverLetter] = useState<CoverLetterResult | null>(null);
+
   async function handleScore() {
     setError("");
     setResult(null);
     setRewrite(null);
+    setCoverLetter(null);
     if (!jd.trim()) return setError("JD yahan paste maar — job description is required.");
     if (!file && !resumeText.trim())
       return setError("Apna resume daal — upload a file or paste text.");
@@ -145,8 +149,37 @@ export default function Home() {
     }
   }
 
-  async function handleExport(format: "pdf" | "docx") {
-    const text = rewrite?.resume ?? result?.resumeText;
+  async function handleGenerateCover() {
+    if (!result) return;
+    setError("");
+    setGeneratingCover(true);
+    try {
+      const res = await fetch("/api/cover-letter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resumeText: result.resumeText, jd }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Cover letter generation failed.");
+      setCoverLetter(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Cover letter generation failed.");
+    } finally {
+      setGeneratingCover(false);
+    }
+  }
+
+  async function handleCopyCover() {
+    if (!coverLetter?.coverLetter) return;
+    try {
+      await navigator.clipboard.writeText(coverLetter.coverLetter);
+    } catch {
+      // Fallback: select text manually
+    }
+  }
+
+  async function handleExport(format: "pdf" | "docx", textOverride?: string) {
+    const text = textOverride ?? rewrite?.resume ?? result?.resumeText;
     if (!text) return;
     const res = await fetch("/api/export", {
       method: "POST",
@@ -161,7 +194,7 @@ export default function Home() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `resume.${format}`;
+    a.download = textOverride ? `cover-letter.${format}` : `resume.${format}`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -332,13 +365,23 @@ export default function Home() {
           )}
 
           {/* AI CTA */}
-          <div className="mt-6">
+          <div className="mt-6 flex flex-col gap-3">
             <button
               onClick={handleRewrite}
               disabled={rewriting}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-brand py-3.5 font-display font-semibold text-slate-800 transition hover:brightness-95 disabled:opacity-50"
             >
               {rewriting ? "Apun ka AI kaam pe laga hai…" : "AI se sahi karwa lelo ✨"}
+              <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                PRO
+              </span>
+            </button>
+            <button
+              onClick={handleGenerateCover}
+              disabled={generatingCover}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand/30 py-3.5 font-display font-semibold text-brand transition hover:bg-brand/5 disabled:opacity-50"
+            >
+              {generatingCover ? "Cover letter bana raha hu…" : "Cover letter bhi bana do 😏"}
               <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-bold text-white">
                 PRO
               </span>
@@ -380,6 +423,47 @@ export default function Home() {
             </button>
             <button
               onClick={() => handleExport("docx")}
+              className="rounded-xl border border-slate-200 px-5 py-2.5 font-semibold transition hover:bg-slate-50"
+            >
+              Word mein le ja
+            </button>
+          </div>
+        </section>
+      )}
+
+      {coverLetter && (
+        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="font-display font-semibold">Cover letter ready hai boss! 💌</h2>
+
+          {coverLetter.changes.length > 0 && (
+            <ul className="mb-4 mt-2 list-inside list-disc rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+              {coverLetter.changes.map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+          )}
+
+          <textarea
+            readOnly
+            value={coverLetter.coverLetter}
+            className="mt-3 h-48 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm"
+          />
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              onClick={handleCopyCover}
+              className="rounded-xl border border-slate-200 px-5 py-2.5 font-semibold transition hover:bg-slate-50"
+            >
+              Copy karo 📋
+            </button>
+            <button
+              onClick={() => handleExport("pdf", coverLetter.coverLetter)}
+              className="rounded-xl border border-slate-200 px-5 py-2.5 font-semibold transition hover:bg-slate-50"
+            >
+              PDF download kar lelo
+            </button>
+            <button
+              onClick={() => handleExport("docx", coverLetter.coverLetter)}
               className="rounded-xl border border-slate-200 px-5 py-2.5 font-semibold transition hover:bg-slate-50"
             >
               Word mein le ja

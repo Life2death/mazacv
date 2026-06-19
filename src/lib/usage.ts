@@ -10,11 +10,12 @@
  */
 
 export type Plan = "free" | "pro";
-export type Action = "score" | "rewrite" | "export";
+export type Action = "score" | "rewrite" | "export" | "cover-letter";
 
 export const FREE_LIMITS: Record<Action, number> = {
   score: 3, // per day
   rewrite: 1, // per month
+  "cover-letter": 0, // Pro only
   export: 0, // Pro only
 };
 

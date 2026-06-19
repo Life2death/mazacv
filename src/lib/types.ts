@@ -24,6 +24,11 @@ export interface ScoreResult {
 
 export type Portal = "generic" | "naukri" | "linkedin_india";
 
+export interface CoverLetterResult {
+  coverLetter: string;
+  changes: string[];
+}
+
 export interface RewriteResult {
   /** The rewritten resume as plain text (one logical line per row) */
   resume: string;
