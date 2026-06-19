@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     const { plan } = (await req.json()) as { plan?: "monthly" | "yearly" };
     const planId = plan === "yearly" ? yearlyPlan : monthlyPlan;
-    const totalCount = 0; // infinite recurring — charges per plan period until cancelled
+    const totalCount = 120; // 10-year recurring (Razorpay rejects 0 for infinite)
 
     const Razorpay = (await import("razorpay")).default;
     const rzp = new Razorpay({ key_id: keyId, key_secret: keySecret });
