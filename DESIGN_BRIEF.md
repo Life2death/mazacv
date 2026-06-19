@@ -22,11 +22,12 @@ visual + UX design** of the screens.
 
 **Brand name: `MazaCV`** · **Domain: `mazacv.in`** (acquired) 🟢
 
-**Maza** means "fun / enjoyment / a good time" in Hindi & Marathi — so MazaCV =
-"make your CV with maza." It reframes a stressful chore (fixing your resume) into
-something light and confident, which is exactly the brand personality. Short,
-punchy, bilingual, and it pairs as a sibling product to the owner's **LiftLelo**
-(carpooling) and **NaukriLelo** family — same warm, desi, action-led house feel.
+**Maza** (माझा) means **"my / mine" in Marathi** — so **MazaCV = "My CV."** It's
+personal and ownership-driven: *this is my CV, and I own how it lands the job.*
+As a bonus, "maza" also reads as "fun / enjoyment" in Hindi, so the name carries
+a light, confident second meaning too. Short, punchy, bilingual, rooted in
+Maharashtra — and a sibling to the owner's **LiftLelo** (carpooling) and
+**NaukriLelo** family: same warm, desi, action-led house feel.
 
 **Tagline:** *"CV banao mazedaar, naukri karo pakki."*
 *(Make your CV great/fun, make the job certain.)*

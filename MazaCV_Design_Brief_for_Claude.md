@@ -18,11 +18,13 @@ Think: *"Grammarly for getting shortlisted — but desi, jhakaas, and made in Mu
 
 ## Brand
 
-**Name:** MazaCV
+**Name:** MazaCV · **Domain:** mazacv.in
 **Tagline:** *"CV banao mazedaar, naukri karo pakki."*
-*(Make your resume awesome, make the job certain.)*
+*(Make your CV great, make the job certain.)*
 
-**Brand family:** Sits alongside **LiftLelo** (carpooling) and **NaukriLelo** — "Lelo" means "grab it / take it" in Hindi. All three share the same warm, action-led, desi personality.
+**Name meaning:** **Maza** (माझा) = **"my / mine" in Marathi** → **MazaCV = "My CV."** Personal and ownership-driven. Bonus: "maza" also reads as "fun" in Hindi.
+
+**Brand family:** A sibling to **LiftLelo** (carpooling) and **NaukriLelo** — all share the same warm, action-led, desi personality, rooted in Maharashtra.
 
 **Personality:**
 Your **smart, street-smart Mumbai dost (friend)** who knows exactly how the hiring system works. Confident, warm, slightly cheeky. Says *"tension nahi lene ka, scene set kar denge"* (don't worry, we'll sort it out).
