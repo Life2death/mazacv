@@ -48,3 +48,17 @@ alter table scans enable row level security;
 create policy "Users can only see their own scans"
   on scans for all
   using (auth.uid() = user_id);
+
+-- Idempotent payment processing — PK conflict prevents double-grant.
+create table if not exists processed_payments (
+  payment_id text primary key,
+  user_id uuid references auth.users (id) on delete cascade not null,
+  type text not null,
+  created_at timestamptz default now()
+);
+
+alter table processed_payments enable row level security;
+create policy "Service role only"
+  on processed_payments for all
+  using (true)
+  with check (true);

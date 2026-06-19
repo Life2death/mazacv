@@ -46,7 +46,15 @@ export async function POST(req: Request) {
         process.env.SUPABASE_URL,
         process.env.SUPABASE_SERVICE_ROLE_KEY
       );
-      await sb.from("profiles").upsert({ id: userId, plan: "pro" });
+
+      // Atomic dedupe — PK conflict means this payment was already processed
+      const { error: dupError } = await sb
+        .from("processed_payments")
+        .insert({ payment_id: razorpayPaymentId, user_id: userId, type: "subscription" });
+
+      if (!dupError) {
+        await sb.from("profiles").upsert({ id: userId, plan: "pro" });
+      }
     }
 
     const origin = process.env.APP_URL ?? "http://localhost:3000";

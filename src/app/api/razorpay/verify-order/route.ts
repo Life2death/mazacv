@@ -47,19 +47,25 @@ export async function POST(req: Request) {
         process.env.SUPABASE_SERVICE_ROLE_KEY
       );
 
-      // Read current credits, add 1 rewrite + 1 export
-      const { data: profile } = await sb
-        .from("profiles")
-        .select("credits")
-        .eq("id", userId)
-        .maybeSingle();
-      const current: Record<string, number> = (profile?.credits as Record<string, number>) ?? {};
-      const updated = {
-        ...current,
-        rewrite: (current.rewrite ?? 0) + 1,
-        export: (current.export ?? 0) + 1,
-      };
-      await sb.from("profiles").upsert({ id: userId, credits: updated });
+      // Atomic dedupe — PK conflict means this payment was already processed
+      const { error: dupError } = await sb
+        .from("processed_payments")
+        .insert({ payment_id: razorpayPaymentId, user_id: userId, type: "oneshot" });
+
+      if (!dupError) {
+        const { data: profile } = await sb
+          .from("profiles")
+          .select("credits")
+          .eq("id", userId)
+          .maybeSingle();
+        const current: Record<string, number> = (profile?.credits as Record<string, number>) ?? {};
+        const updated = {
+          ...current,
+          rewrite: (current.rewrite ?? 0) + 1,
+          export: (current.export ?? 0) + 1,
+        };
+        await sb.from("profiles").upsert({ id: userId, credits: updated });
+      }
     }
 
     const origin = process.env.APP_URL ?? "http://localhost:3000";

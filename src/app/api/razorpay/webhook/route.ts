@@ -17,11 +17,19 @@ async function setPlan(userId: string, plan: "free" | "pro") {
   await sb.from("profiles").upsert({ id: userId, plan });
 }
 
-/** Grant one-shot credits (1 rewrite + 1 export). */
-async function grantOneshotCredits(userId: string) {
+/** Grant one-shot credits (1 rewrite + 1 export) — idempotent via processed_payments. */
+async function grantOneshotCredits(userId: string, paymentId: string) {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
   const { createClient } = await import("@supabase/supabase-js");
   const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  // Atomic dedupe — PK conflict means this payment was already processed
+  const { error: dupError } = await sb
+    .from("processed_payments")
+    .insert({ payment_id: paymentId, user_id: userId, type: "oneshot" });
+
+  if (dupError) return;
+
   const { data: profile } = await sb
     .from("profiles")
     .select("credits")
@@ -66,9 +74,9 @@ export async function POST(req: Request) {
       await setPlan(userId, "pro");
     }
 
-    // One-shot "Ek Baar" order — grant credits
+    // One-shot "Ek Baar" order — grant credits (deduped via processed_payments)
     if (eventType === "payment.captured" && payment?.notes?.type === "oneshot") {
-      await grantOneshotCredits(userId);
+      await grantOneshotCredits(userId, payment.id);
     }
 
     // Downgrade events — subscription is no longer active
