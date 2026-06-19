@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { NavBar } from "@/components/NavBar";
 import { useAuth } from "@/components/AuthProvider";
+import { UpgradeModal } from "@/components/UpgradeModal";
 import type { ScoreResult, Portal, CoverLetterResult, TemplateId, JsonResume } from "@/lib/types";
 
 interface ScoreResponse extends ScoreResult {
   resumeText: string;
   parsedResume: JsonResume;
+  remaining?: number;
 }
 
 interface RewriteResponse {
@@ -16,6 +18,7 @@ interface RewriteResponse {
   scoreBefore: number;
   scoreAfter: number;
   parsedResume: JsonResume;
+  remaining?: number;
 }
 
 function reaction(score: number) {
@@ -76,6 +79,11 @@ export default function ScanPage() {
   const [coverLetter, setCoverLetter] = useState<CoverLetterResult | null>(null);
   const [parsedResume, setParsedResume] = useState<JsonResume | null>(null);
 
+  const [scoresLeft, setScoresLeft] = useState<number | null>(null);
+  const [rewritesLeft, setRewritesLeft] = useState<number | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState("");
+
   const [templateId, setTemplateId] = useState<TemplateId>("classic");
   const [accentColor, setAccentColor] = useState("#4f46e5");
   const TEMPLATES = [
@@ -119,9 +127,13 @@ export default function ScanPage() {
       fd.append("portal", portal);
       const res = await fetch("/api/score", { method: "POST", body: fd, headers: authHeaders() });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Scoring failed.");
+      if (!res.ok) {
+        if (res.status === 402) { setUpgradeReason(data.error || ""); setShowUpgradeModal(true); return; }
+        throw new Error(data.error || "Scoring failed.");
+      }
       setResult(data);
       setParsedResume(data.parsedResume);
+      if (typeof data.remaining === "number") setScoresLeft(data.remaining);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Arre, kuch locha ho gaya. Phirse try kar.");
     } finally {
@@ -140,9 +152,13 @@ export default function ScanPage() {
         body: JSON.stringify({ resumeText: result.resumeText, jd }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Rewrite failed.");
+      if (!res.ok) {
+        if (res.status === 402) { setUpgradeReason(data.error || ""); setShowUpgradeModal(true); return; }
+        throw new Error(data.error || "Rewrite failed.");
+      }
       setRewrite(data);
       setParsedResume(data.parsedResume);
+      if (typeof data.remaining === "number") setRewritesLeft(data.remaining);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Rewrite failed.");
     } finally {
@@ -161,7 +177,10 @@ export default function ScanPage() {
         body: JSON.stringify({ resumeText: result.resumeText, jd }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Cover letter generation failed.");
+      if (!res.ok) {
+        if (res.status === 402) { setUpgradeReason(data.error || ""); setShowUpgradeModal(true); return; }
+        throw new Error(data.error || "Cover letter generation failed.");
+      }
       setCoverLetter(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Cover letter generation failed.");
@@ -200,6 +219,7 @@ export default function ScanPage() {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
+      if (res.status === 402) { setUpgradeReason(data.error || ""); setShowUpgradeModal(true); return; }
       return setError(data.error || "Export failed.");
     }
     const blob = await res.blob();
@@ -217,10 +237,30 @@ export default function ScanPage() {
     <main className="mx-auto max-w-5xl px-4 py-10">
       <NavBar showLinks={false} />
       <div className="mb-8 text-center">
-        <p className="max-w-md mx-auto text-slate-600">
+        <p className="mx-auto max-w-md text-slate-600">
           Score your resume against any job description — free. Then let AI tailor
           it and export to PDF or Word.
         </p>
+        {scoresLeft !== null && scoresLeft < 3 && (
+          <div className="mt-3 flex items-center justify-center gap-4 text-xs">
+            <span className={`rounded-full px-3 py-1 font-medium ${
+              scoresLeft > 0
+                ? "bg-amber-50 text-amber-700"
+                : "bg-red-50 text-red-700"
+            }`}>
+              {scoresLeft > 0
+                ? `${scoresLeft} free score${scoresLeft !== 1 ? "s" : ""} left aaj ke liye`
+                : "Free limit khatam! 😅"}
+            </span>
+            {rewritesLeft !== null && rewritesLeft < 1 && (
+              <span className="rounded-full bg-amber-50 px-3 py-1 font-medium text-amber-700">
+                {rewritesLeft > 0
+                  ? `${rewritesLeft} rewrite left`
+                  : "No rewrites left"}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <section className="grid gap-6 md:grid-cols-2">
@@ -525,6 +565,12 @@ export default function ScanPage() {
         Free unlimited scoring · AI tailoring &amp; export on Pro · Banaya Mumbai mein ❤️ ·
         mazacv.in
       </footer>
+
+      <UpgradeModal
+        open={showUpgradeModal}
+        reason={upgradeReason}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </main>
   );
 }
