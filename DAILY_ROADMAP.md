@@ -57,12 +57,43 @@
 
 ---
 
-## DAY 4 — Apply design system (foundation)
-**Goal:** start converting the functional UI to the branded design.
-- Add Tailwind theme tokens (palette from `DESIGN_BRIEF.md`), Poppins + Inter via `next/font`.
-- Build shared components: `Button`, `Card`, `ScoreGauge` (circular), `KeywordChip`, `Loader` (Hinglish text), `Toast`.
-- Apply to the existing scorer page. No new screens yet.
-**Acceptance:** scorer page matches the design mockups; components reusable; build passes.
+## DAY 4 — Resume templates (moved up so it's testable now) ⭐
+**Goal:** replace the boring plain-text export with a library of designed,
+1–2 page, ATS-safe resume templates the user can pick from.
+
+> NOTE: the original "apply design system (fonts/tokens/components)" work is
+> already DONE (committed in "Apply MazaCV design system to scorer page"), so
+> Day 4 is now the templates feature.
+
+**Approach — adopt the JSON Resume ecosystem, render via HTML→PDF:**
+1. **Data model:** structure the resume into the **JSON Resume schema**
+   (jsonresume.org) — one standard shape, future-proof. Parse the user's
+   uploaded/AI-tailored resume text into this JSON (Claude can do the parse).
+2. **Rendering pipeline:** switch export from plain-text `pdf-lib` to
+   **HTML/CSS → PDF via Puppeteer/Playwright**. On Vercel use
+   `@sparticuz/chromium` + `puppeteer-core` (the bundled Chromium is too big for
+   the serverless limit). Keep DOCX export via the `docx` lib.
+3. **Bundle 8–10 themes** in two clearly-labelled tiers:
+   - **ATS-Safe (default):** single-column only — NO sidebars, tables, or
+     text-boxes (they break ATS parsers). Variety comes from typography, accent
+     colour, and section dividers. ~5 of these.
+   - **Designer:** two-column / richer layouts for when a human reads it or for
+     LinkedIn. ~3–5 of these. Label them "may not be fully ATS-safe."
+   - Source themes from MIT-licensed `jsonresume-theme-*` packages or adapt from
+     OpenResume / Resumify (verify each licence before bundling).
+4. **Enforce 1–2 pages:** cap content, use print CSS `@page` A4 sizing, and warn
+   the user if content overflows 2 pages ("Resume 2 page se bada hai — trim kar").
+5. **Per-template accent-colour picker** → lots of perceived variety from few
+   base layouts.
+6. **UI:** a template gallery on the result/export step (thumbnail previews);
+   selecting one re-renders the preview; export uses the chosen template.
+
+**Acceptance:** user can pick from ≥8 templates; each exports a clean 1–2 page
+PDF (and DOCX); ATS-Safe templates are single-column and parse cleanly; build
+passes; gating unchanged (export stays Pro/one-shot). No slang in the resume
+output itself.
+**Guardrails:** verify the Puppeteer/chromium path actually works in a Vercel
+deploy (not just locally) before calling it done — this is the riskiest part.
 
 ---
 
@@ -131,11 +162,11 @@
 
 ---
 
-## DAY 13 — ATS-safe resume templates
-**Goal:** visual parity with ResumeVera/Rezup.
-- 5 templates (Fresher, Professional, Technical, Creative, Career-Switcher) as structured renderers feeding `toPdf`/`toDocx`.
-- Template picker on the export step.
-**Acceptance:** each template exports a clean, ATS-parseable PDF + Word.
+## DAY 13 — ATS-safe resume templates → MOVED TO DAY 4
+This feature was prioritised and moved up to **Day 4** (see above). This slot is
+now free — pull the next backlog item forward, or use it to add more themes /
+template polish on top of the Day 4 foundation (e.g. Fresher, Technical,
+Career-Switcher variants if not already covered).
 
 ---
 
