@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ScoreResult, Portal, CoverLetterResult } from "@/lib/types";
+import type { ScoreResult, Portal, CoverLetterResult, TemplateId } from "@/lib/types";
 
 interface ScoreResponse extends ScoreResult {
   resumeText: string;
@@ -102,6 +102,23 @@ export default function Home() {
   const [generatingCover, setGeneratingCover] = useState(false);
   const [coverLetter, setCoverLetter] = useState<CoverLetterResult | null>(null);
 
+  const [templateId, setTemplateId] = useState<TemplateId>("classic");
+  const [accentColor, setAccentColor] = useState("#4f46e5");
+  const TEMPLATES = [
+    { id: "classic" as TemplateId, name: "Classic", tier: "ATS-Safe", desc: "Single column, serif" },
+    { id: "modern" as TemplateId, name: "Modern", tier: "ATS-Safe", desc: "Sans-serif with accent bar" },
+    { id: "compact" as TemplateId, name: "Compact", tier: "ATS-Safe", desc: "Tight spacing, 1 page" },
+    { id: "split" as TemplateId, name: "Split", tier: "Designer", desc: "Two-column with sidebar" },
+  ] as const;
+  const ACCENT_COLORS = [
+    { name: "Indigo", value: "#4f46e5" },
+    { name: "Amber", value: "#f59e0b" },
+    { name: "Green", value: "#16a34a" },
+    { name: "Teal", value: "#0d9488" },
+    { name: "Rose", value: "#e11d48" },
+    { name: "Slate", value: "#475569" },
+  ] as const;
+
   async function handleScore() {
     setError("");
     setResult(null);
@@ -178,13 +195,23 @@ export default function Home() {
     }
   }
 
-  async function handleExport(format: "pdf" | "docx", textOverride?: string) {
+  async function handleExport(
+    format: "pdf" | "docx",
+    textOverride?: string,
+    opts?: { isCoverLetter?: boolean }
+  ) {
     const text = textOverride ?? rewrite?.resume ?? result?.resumeText;
     if (!text) return;
     const res = await fetch("/api/export", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resumeText: text, format }),
+      body: JSON.stringify({
+        resumeText: text,
+        format,
+        templateId,
+        accentColor,
+        isCoverLetter: opts?.isCoverLetter ?? !!textOverride,
+      }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -414,10 +441,52 @@ export default function Home() {
             className="h-96 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs"
           />
 
+          {/* Template gallery */}
+          <div className="mt-5">
+            <div className="mb-2 text-xs font-semibold text-slate-500">Resume template</div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {TEMPLATES.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTemplateId(t.id)}
+                  className={`shrink-0 rounded-xl border-2 p-3 text-left transition ${
+                    templateId === t.id
+                      ? "border-brand bg-brand/5"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="text-sm font-semibold text-slate-800">{t.name}</div>
+                  <div className={`mt-0.5 text-[10px] font-semibold uppercase ${
+                    t.tier === "ATS-Safe" ? "text-green-600" : "text-amber-600"
+                  }`}>{t.tier}</div>
+                  <div className="mt-0.5 text-[10px] text-slate-400">{t.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Accent color picker */}
+          <div className="mt-4">
+            <div className="mb-2 text-xs font-semibold text-slate-500">Accent colour</div>
+            <div className="flex gap-2">
+              {ACCENT_COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  onClick={() => setAccentColor(c.value)}
+                  className={`h-7 w-7 rounded-full border-2 transition ${
+                    accentColor === c.value ? "border-slate-800 scale-110" : "border-transparent"
+                  }`}
+                  style={{ backgroundColor: c.value }}
+                  title={c.name}
+                />
+              ))}
+            </div>
+          </div>
+
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               onClick={() => handleExport("pdf")}
-              className="rounded-xl border border-slate-200 px-5 py-2.5 font-semibold transition hover:bg-slate-50"
+              className="rounded-xl bg-brand px-5 py-2.5 font-semibold text-white transition hover:bg-brand-dark"
             >
               PDF download kar lelo
             </button>
@@ -457,13 +526,13 @@ export default function Home() {
               Copy karo 📋
             </button>
             <button
-              onClick={() => handleExport("pdf", coverLetter.coverLetter)}
+              onClick={() => handleExport("pdf", coverLetter.coverLetter, { isCoverLetter: true })}
               className="rounded-xl border border-slate-200 px-5 py-2.5 font-semibold transition hover:bg-slate-50"
             >
               PDF download kar lelo
             </button>
             <button
-              onClick={() => handleExport("docx", coverLetter.coverLetter)}
+              onClick={() => handleExport("docx", coverLetter.coverLetter, { isCoverLetter: true })}
               className="rounded-xl border border-slate-200 px-5 py-2.5 font-semibold transition hover:bg-slate-50"
             >
               Word mein le ja

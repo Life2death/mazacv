@@ -1,3 +1,4 @@
+import { renderToBuffer } from "@react-pdf/renderer";
 import {
   Document,
   Packer,
@@ -5,14 +6,14 @@ import {
   TextRun,
   HeadingLevel,
 } from "docx";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import type { JsonResume, TemplateId } from "./types";
+import { getTemplateComponent, ClassicTemplate } from "./templates";
 
 /** Build a .docx resume from plain text (one line per paragraph). */
 export async function toDocx(resumeText: string): Promise<Buffer> {
   const lines = resumeText.split(/\r?\n/);
   const children = lines.map((line) => {
     const trimmed = line.trim();
-    // Treat ALL-CAPS short lines or lines ending with ":" as headings.
     const isHeading =
       (trimmed.length > 0 &&
         trimmed.length < 40 &&
@@ -32,13 +33,36 @@ export async function toDocx(resumeText: string): Promise<Buffer> {
   return Buffer.from(await Packer.toBuffer(doc));
 }
 
-/** Build a simple, ATS-clean text PDF from plain text. */
-export async function toPdf(resumeText: string): Promise<Buffer> {
+/** Build a designed PDF resume using @react-pdf/renderer templates. */
+export async function renderPdf(
+  resume: JsonResume,
+  accentColor: string = "#4f46e5"
+): Promise<Buffer> {
+  const TemplateComponent = ClassicTemplate;
+  return await renderToBuffer(
+    <TemplateComponent resume={resume} accentColor={accentColor} />
+  );
+}
+
+export async function renderPdfWithTemplate(
+  resume: JsonResume,
+  templateId: TemplateId = "classic",
+  accentColor: string = "#4f46e5"
+): Promise<Buffer> {
+  const TemplateComponent = getTemplateComponent(templateId);
+  return await renderToBuffer(
+    <TemplateComponent resume={resume} accentColor={accentColor} />
+  );
+}
+
+/** Legacy plain-text PDF export (kept for cover letters etc.). */
+export async function toPdfLegacy(resumeText: string): Promise<Buffer> {
+  const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  const pageWidth = 595.28; // A4
+  const pageWidth = 595.28;
   const pageHeight = 841.89;
   const margin = 50;
   const fontSize = 10.5;
@@ -59,7 +83,6 @@ export async function toPdf(resumeText: string): Promise<Buffer> {
       /[A-Z]/.test(trimmed);
     const useFont = isHeading ? fontBold : font;
 
-    // Word-wrap to page width.
     const wrapped = wrapText(trimmed || " ", useFont, fontSize, maxWidth);
     for (const wline of wrapped) {
       if (y < margin) {
