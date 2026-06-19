@@ -1,9 +1,28 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { CoverLetterResult } from "./types";
+import type { Plan } from "./usage";
+
+const MAX_INPUT_CHARS = 15000;
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const PRO_MODEL = "claude-opus-4-8";
+
+function truncate(text: string, label: string): string {
+  if (text.length > MAX_INPUT_CHARS) {
+    console.warn(`[LLM Cost] ${label} truncated from ${text.length} to ${MAX_INPUT_CHARS} chars`);
+    return text.slice(0, MAX_INPUT_CHARS) + "\n\n[TRUNCATED — input too long]";
+  }
+  return text;
+}
+
+function pickModel(plan?: Plan): string {
+  if (plan === "pro") return process.env.CLAUDE_PRO_MODEL ?? PRO_MODEL;
+  return process.env.CLAUDE_DEFAULT_MODEL ?? DEFAULT_MODEL;
+}
 
 export async function generateCoverLetter(
   resumeText: string,
-  jdText: string
+  jdText: string,
+  plan?: Plan
 ): Promise<CoverLetterResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured.");
@@ -26,15 +45,15 @@ Return STRICT JSON only, no markdown fences, with this shape:
 {"coverLetter": "<full cover letter>", "changes": ["key fact used from resume", ...]}`;
 
   const user = `TARGET JOB DESCRIPTION:
-${jdText}
+${truncate(jdText, "JD")}
 
 CANDIDATE'S RESUME:
-${resumeText}
+${truncate(resumeText, "Resume")}
 
 Write a tailored cover letter for this candidate.`;
 
   const msg = await client.messages.create({
-    model: "claude-opus-4-8",
+    model: pickModel(plan),
     max_tokens: 4096,
     system,
     messages: [{ role: "user", content: user }],

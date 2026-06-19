@@ -47,6 +47,12 @@ export function NavBar({ showLinks = true }: NavBarProps) {
             >
               Tracker
             </Link>
+            <Link
+              href="/linkedin"
+              className="hidden rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:text-brand sm:block"
+            >
+              LinkedIn
+            </Link>
             <span className="hidden text-xs text-slate-400 sm:block">
               {user.email}
             </span>

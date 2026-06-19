@@ -4,13 +4,26 @@ import { scoreResume } from "@/lib/score";
 import { heuristicParseResume } from "@/lib/resume-parser";
 import { getSessionUser } from "@/lib/auth";
 import { checkAndConsume } from "@/lib/usage";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+function getIp(req: Request): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || req.headers.get("x-real-ip")
+    || "127.0.0.1";
+}
+
 export async function POST(req: Request) {
   try {
     const { userId, plan, credits } = await getSessionUser(req);
+
+    const rl = checkRateLimit(getIp(req), userId);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "Bahut ho gaya, thoda ruk!" }, { status: 429 });
+    }
+
     const gate = await checkAndConsume(userId, plan, "rewrite", credits);
     if (!gate.allowed) {
       return NextResponse.json({ error: gate.reason }, { status: 402 });
@@ -28,7 +41,7 @@ export async function POST(req: Request) {
     }
 
     const before = scoreResume(resumeText, jd);
-    const rewritten = await rewriteResume(resumeText, jd, before.missingKeywords);
+    const rewritten = await rewriteResume(resumeText, jd, before.missingKeywords, plan);
     const after = scoreResume(rewritten.resume, jd);
 
     const parsedResume = heuristicParseResume(rewritten.resume);

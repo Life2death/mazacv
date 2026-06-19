@@ -1,4 +1,5 @@
 import type { JsonResume } from "./types";
+import type { Plan } from "./usage";
 
 const SECTION_HEADERS = [
   /^(experience|work|employment|professional experience)/i,
@@ -122,11 +123,28 @@ export function heuristicParseResume(resumeText: string): JsonResume {
   return resume;
 }
 
+const MAX_INPUT_CHARS = 15000;
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const PRO_MODEL = "claude-opus-4-8";
+
+function truncate(text: string, label: string): string {
+  if (text.length > MAX_INPUT_CHARS) {
+    console.warn(`[LLM Cost] ${label} truncated from ${text.length} to ${MAX_INPUT_CHARS} chars`);
+    return text.slice(0, MAX_INPUT_CHARS) + "\n\n[TRUNCATED — input too long]";
+  }
+  return text;
+}
+
+function pickModel(plan?: Plan): string {
+  if (plan === "pro") return process.env.CLAUDE_PRO_MODEL ?? PRO_MODEL;
+  return process.env.CLAUDE_DEFAULT_MODEL ?? DEFAULT_MODEL;
+}
+
 /**
  * Use Claude API to parse resume text into JsonResume.
  * More accurate but requires ANTHROPIC_API_KEY.
  */
-export async function claudeParseResume(resumeText: string): Promise<JsonResume> {
+export async function claudeParseResume(resumeText: string, plan?: Plan): Promise<JsonResume> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
@@ -147,10 +165,10 @@ Return STRICT JSON only, no markdown fences, with this shape:
 Extract EVERYTHING you can from the resume text. Be thorough.`;
 
   const msg = await client.messages.create({
-    model: "claude-opus-4-8",
+    model: pickModel(plan),
     max_tokens: 4096,
     system,
-    messages: [{ role: "user", content: resumeText }],
+    messages: [{ role: "user", content: truncate(resumeText, "Resume") }],
   });
 
   const text = msg.content
@@ -164,10 +182,10 @@ Extract EVERYTHING you can from the resume text. Be thorough.`;
 /**
  * Main entry point: tries Claude first, falls back to heuristic.
  */
-export async function parseResume(resumeText: string): Promise<JsonResume> {
+export async function parseResume(resumeText: string, plan?: Plan): Promise<JsonResume> {
   if (process.env.ANTHROPIC_API_KEY) {
     try {
-      return await claudeParseResume(resumeText);
+      return await claudeParseResume(resumeText, plan);
     } catch {
       // Fall through to heuristic
     }

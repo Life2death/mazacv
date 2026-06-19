@@ -1,5 +1,23 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { RewriteResult } from "./types";
+import type { Plan } from "./usage";
+
+const MAX_INPUT_CHARS = 15000;
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const PRO_MODEL = "claude-opus-4-8";
+
+function truncate(text: string, label: string): string {
+  if (text.length > MAX_INPUT_CHARS) {
+    console.warn(`[LLM Cost] ${label} truncated from ${text.length} to ${MAX_INPUT_CHARS} chars`);
+    return text.slice(0, MAX_INPUT_CHARS) + "\n\n[TRUNCATED — input too long]";
+  }
+  return text;
+}
+
+function pickModel(plan?: Plan): string {
+  if (plan === "pro") return process.env.CLAUDE_PRO_MODEL ?? PRO_MODEL;
+  return process.env.CLAUDE_DEFAULT_MODEL ?? DEFAULT_MODEL;
+}
 
 /**
  * AI resume rewrite — the PAID feature.
@@ -11,7 +29,8 @@ import { RewriteResult } from "./types";
 export async function rewriteResume(
   resumeText: string,
   jdText: string,
-  missingKeywords: string[]
+  missingKeywords: string[],
+  plan?: Plan
 ): Promise<RewriteResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured.");
@@ -32,16 +51,16 @@ Return STRICT JSON only, no markdown fences, with this shape:
 {"resume": "<full rewritten resume as plain text>", "changes": ["short note", ...]}`;
 
   const user = `TARGET JOB DESCRIPTION:
-${jdText}
+${truncate(jdText, "JD")}
 
 MISSING KEYWORDS TO TRY TO ADDRESS (only if truthful):
 ${missingKeywords.join(", ")}
 
 CURRENT RESUME:
-${resumeText}`;
+${truncate(resumeText, "Resume")}`;
 
   const msg = await client.messages.create({
-    model: "claude-opus-4-8",
+    model: pickModel(plan),
     max_tokens: 4096,
     system,
     messages: [{ role: "user", content: user }],

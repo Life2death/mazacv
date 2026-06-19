@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
     // Resolve the JSON Resume once — reuse for both PDF and DOCX.
     // If the client already parsed it (saved from score/rewrite), skip the Claude call.
-    const resume: JsonResume = parsedResume ?? await parseResume(resumeText);
+    const resume: JsonResume = parsedResume ?? await parseResume(resumeText, plan);
 
     if (format === "pdf") {
       let buf: Buffer;

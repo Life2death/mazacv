@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await generateCoverLetter(resumeText, jd);
+    const result = await generateCoverLetter(resumeText, jd, plan);
     return NextResponse.json({
       ...result,
       remaining: gate.remaining,
