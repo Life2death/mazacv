@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ResumeFit — Free ATS Resume Scorer",
+  title: "MazaCV — Free ATS Resume Scorer | CV banao mazedaar",
   description:
-    "Score your resume against any job description for free, then let AI tailor it. Export to PDF or Word.",
+    "MazaCV — score your resume against any job description for free, then let AI tailor it. Export to PDF or Word. Made in Mumbai. mazacv.in",
 };
 
 export default function RootLayout({

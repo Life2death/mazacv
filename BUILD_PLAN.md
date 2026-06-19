@@ -1,6 +1,6 @@
-# ResumeLelo — Build Plan (for the implementing agent)
+# MazaCV — Build Plan (for the implementing agent)
 
-> **Purpose:** This is the execution plan to take ResumeLelo from its current
+> **Purpose:** This is the execution plan to take MazaCV from its current
 > working core to a launch-ready freemium product for the Indian market.
 > The agent picking this up should work phase by phase, in order, and verify
 > each phase (build passes + manual smoke test) before moving on.
@@ -21,7 +21,7 @@
 
 ## Product decisions (locked)
 
-- **Brand:** ResumeLelo (LiftLelo / NaukriLelo family). See `DESIGN_BRIEF.md`.
+- **Brand:** MazaCV (LiftLelo / NaukriLelo family). See `DESIGN_BRIEF.md`.
 - **Pricing (INR):**
   - Free "Bindaas" — ₹0, unlimited scoring + tips.
   - One-shot "Ek Baar" — **₹49 one-time** = 1 AI tailor + 1 export.
@@ -131,10 +131,10 @@ funnel analytics live.
 **Goal:** live on a domain.
 
 Tasks:
-1. Push repo (done: github.com/Life2death/resume-lelo). Import to **Vercel**.
+1. Push repo (done: github.com/Life2death/mazacv). Import to **Vercel**.
 2. Set env vars in Vercel: `ANTHROPIC_API_KEY`, Supabase keys, Razorpay keys,
    `APP_URL`.
-3. Point domain (e.g. resumelelo.com / .in). Configure Razorpay webhook URL.
+3. Point domain (e.g. mazacv.in). Configure Razorpay webhook URL.
 4. Smoke test the full funnel in production: score → upgrade (test) → tailor →
    export → history.
 5. Soft launch to a small group; watch analytics + LLM cost.

@@ -1,4 +1,4 @@
-# ResumeFit — Free ATS Resume Scorer + AI Tailoring
+# MazaCV — Free ATS Resume Scorer + AI Tailoring
 
 A hostable web app where anyone can:
 

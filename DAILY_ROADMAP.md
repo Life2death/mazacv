@@ -1,4 +1,4 @@
-# ResumeLelo — Daily Build Roadmap (one feature per day)
+# MazaCV — Daily Build Roadmap (one feature per day)
 
 > **For the implementing agent.** Each "Day" below is a self-contained, shippable
 > unit of work. Do exactly one per day, in order. Each ends with `npm run build`
@@ -21,7 +21,7 @@
 
 ## DAY 0 — LAUNCH (today) — ship what already works
 **Goal:** get the current working app live on a public URL today.
-- Push repo (done: github.com/Life2death/resume-lelo).
+- Push repo (done: github.com/Life2death/mazacv).
 - Deploy to Vercel; set `ANTHROPIC_API_KEY` + `APP_URL` env vars.
 - Smoke test live: upload resume → paste JD → score → AI rewrite → PDF + Word.
 - Share the URL. (No auth/billing yet — runs free + open. That's fine for a beta.)

@@ -94,7 +94,10 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
       <header className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-brand">ResumeFit</h1>
+        <h1 className="text-3xl font-bold text-brand">MazaCV</h1>
+        <p className="mt-1 text-sm font-medium text-slate-500">
+          CV banao mazedaar, naukri karo pakki.
+        </p>
         <p className="mt-2 text-slate-600">
           Score your resume against any job description — free. Then let AI tailor
           it and export to PDF or Word.
@@ -273,7 +276,7 @@ export default function Home() {
       )}
 
       <footer className="mt-12 text-center text-xs text-slate-400">
-        Free unlimited scoring · AI tailoring & export on Pro
+        Free unlimited scoring · AI tailoring & export on Pro · Banaya Mumbai mein ❤️ · mazacv.in
       </footer>
     </main>
   );

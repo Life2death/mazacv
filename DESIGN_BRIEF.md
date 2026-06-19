@@ -1,4 +1,4 @@
-# ResumeLelo — Design Brief for Claude (screen design)
+# MazaCV — Design Brief for Claude (screen design)
 
 > Hand this whole file to Claude and say: *"Design the screens for this app per
 > this brief. Mobile-first. Give me high-fidelity mockups for each screen and
@@ -18,38 +18,24 @@ visual + UX design** of the screens.
 
 ---
 
-## 2. The name — recommendation + options
+## 2. The name
 
-**Primary recommendation: `ResumeLelo`** 🟢
+**Brand name: `MazaCV`** · **Domain: `mazacv.in`** (acquired) 🟢
 
-It sits inside the owner's existing brand family — he runs **LiftLelo**
-(carpooling) and **NaukriLelo** — so "Lelo" ("grab it / take it" in Hindi) is
-already a recognised, trusted house style. Instant brand cohesion, easy to say,
-easy to remember, `.com`/`.in` likely available.
+**Maza** means "fun / enjoyment / a good time" in Hindi & Marathi — so MazaCV =
+"make your CV with maza." It reframes a stressful chore (fixing your resume) into
+something light and confident, which is exactly the brand personality. Short,
+punchy, bilingual, and it pairs as a sibling product to the owner's **LiftLelo**
+(carpooling) and **NaukriLelo** family — same warm, desi, action-led house feel.
 
-**Tagline options (pick one, all Bambaiya/Mumbai-flavoured):**
-- "Resume ko banao **jhakaas**." (jhakaas = awesome — iconic Mumbai word)
-- "Naukri ka scene, **set** kar lelo."
-- "Apna resume, **ekdum fit**."
-
-**Alternate names if you want more punch / more local masala:**
-
-| Name | Vibe | Note |
-|---|---|---|
-| **JhakaasCV** | Bold, very Mumbai | "Jhakaas" = legendary Mumbai slang for awesome |
-| **ApunkaResume** | Tapori/Bambaiya | "Apun" = "me/I" in Mumbai street slang — super local |
-| **FulltoFit** | Youthful | "Full to" = totally; "fit" = matches the JD |
-| **NaukriFit** | Clean, descriptive | Pairs naturally with NaukriLelo |
-| **ScoreLelo** | Action-led | Emphasises the free score hook |
-
-> Go with **ResumeLelo** for brand consistency; keep **JhakaasCV** as the bold
-> marketing alter-ego if you want a louder youth campaign later.
+**Tagline:** *"CV banao mazedaar, naukri karo pakki."*
+*(Make your CV great/fun, make the job certain.)*
 
 ---
 
 ## 3. Brand personality
 
-ResumeLelo is your **smart, street-smart Mumbai dost (friend)** who happens to
+MazaCV is your **smart, street-smart Mumbai dost (friend)** who happens to
 know exactly how to crack the hiring system. Not a corporate HR tool — a
 confident, warm, slightly cheeky buddy who says "tension nahi lene ka, scene
 set kar denge."
@@ -145,7 +131,7 @@ Design these screens. For every screen, give **mobile + desktop**, and show the
 **empty / loading / success / error** states where relevant.
 
 ### Screen 1 — Landing / Hero
-- Logo "ResumeLelo", nav (How it works, Pricing, Login).
+- Logo "MazaCV", nav (How it works, Pricing, Login).
 - Big Hinglish headline + English subline (see microcopy table).
 - A single prominent **"Score nikaal — free!"** CTA.
 - Trust strip: "10,000+ resumes scored", "Made in Mumbai", "Your data stays private".
