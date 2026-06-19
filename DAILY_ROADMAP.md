@@ -65,35 +65,41 @@
 > already DONE (committed in "Apply MazaCV design system to scorer page"), so
 > Day 4 is now the templates feature.
 
-**Approach — adopt the JSON Resume ecosystem, render via HTML→PDF:**
+**Approach — `@react-pdf/renderer` (DECIDED: no Puppeteer/Chromium).**
+Rationale: Puppeteer needs a Chromium binary (50MB+ layer, cold starts) on
+Vercel — dropped. Raw `pdf-lib` = manual coordinate math, too painful for many
+templates. `@react-pdf/renderer` is the middle path: declarative React
+components → PDF, pure JS (deploys clean on Vercel, no binary), supports
+columns/fonts/colours/images. Each template is just a React component.
+
 1. **Data model:** structure the resume into the **JSON Resume schema**
    (jsonresume.org) — one standard shape, future-proof. Parse the user's
    uploaded/AI-tailored resume text into this JSON (Claude can do the parse).
-2. **Rendering pipeline:** switch export from plain-text `pdf-lib` to
-   **HTML/CSS → PDF via Puppeteer/Playwright**. On Vercel use
-   `@sparticuz/chromium` + `puppeteer-core` (the bundled Chromium is too big for
-   the serverless limit). Keep DOCX export via the `docx` lib.
-3. **Bundle 8–10 themes** in two clearly-labelled tiers:
+2. **Rendering:** build templates as **`@react-pdf/renderer` components** fed by
+   the JSON Resume data. Replace the plain-text `pdf-lib` resume export with
+   this. Keep DOCX export via the `docx` lib (map JSON → docx).
+   - NOTE: react-pdf does NOT render arbitrary HTML themes, so we hand-build our
+     own template components (we don't pull community `jsonresume-theme-*` HTML).
+     That's the accepted trade-off — ship a few good ones now, scale later.
+3. **Bundle 6–8 templates** in two clearly-labelled tiers:
    - **ATS-Safe (default):** single-column only — NO sidebars, tables, or
      text-boxes (they break ATS parsers). Variety comes from typography, accent
-     colour, and section dividers. ~5 of these.
+     colour, and section dividers. ~4 of these.
    - **Designer:** two-column / richer layouts for when a human reads it or for
-     LinkedIn. ~3–5 of these. Label them "may not be fully ATS-safe."
-   - Source themes from MIT-licensed `jsonresume-theme-*` packages or adapt from
-     OpenResume / Resumify (verify each licence before bundling).
-4. **Enforce 1–2 pages:** cap content, use print CSS `@page` A4 sizing, and warn
-   the user if content overflows 2 pages ("Resume 2 page se bada hai — trim kar").
+     LinkedIn. ~2–4 of these. Label them "may not be fully ATS-safe."
+4. **Enforce 1–2 pages:** cap content / size the react-pdf `<Page size="A4">`,
+   and warn if content overflows 2 pages ("Resume 2 page se bada hai — trim kar").
 5. **Per-template accent-colour picker** → lots of perceived variety from few
    base layouts.
 6. **UI:** a template gallery on the result/export step (thumbnail previews);
    selecting one re-renders the preview; export uses the chosen template.
 
-**Acceptance:** user can pick from ≥8 templates; each exports a clean 1–2 page
+**Acceptance:** user can pick from ≥6 templates; each exports a clean 1–2 page
 PDF (and DOCX); ATS-Safe templates are single-column and parse cleanly; build
 passes; gating unchanged (export stays Pro/one-shot). No slang in the resume
 output itself.
-**Guardrails:** verify the Puppeteer/chromium path actually works in a Vercel
-deploy (not just locally) before calling it done — this is the riskiest part.
+**Guardrails:** no Chromium/Puppeteer. Verify export works on a live Vercel
+deploy (react-pdf in a serverless route), not just locally, before done.
 
 ---
 
