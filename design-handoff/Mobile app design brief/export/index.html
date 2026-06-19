@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MazaCV · Screen export</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;background:#e7e5df;font-family:Inter,sans-serif;color:#0f172a;padding:48px;}
+  .wrap{max-width:880px;margin:0 auto;}
+  h1{font:800 32px Poppins;margin:0;}
+  .sub{font:500 15px Inter;color:#64748b;margin:8px 0 36px;}
+  h2{font:700 12px Inter;letter-spacing:.08em;text-transform:uppercase;color:#475569;margin:32px 0 12px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  a.card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:16px 18px;text-decoration:none;color:#0f172a;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+  a.card:hover{border-color:#c7d2fe;}
+  .name{font:600 14px Inter;}
+  .file{font:400 12px Inter;color:#94a3b8;}
+  .tag{font:600 10px Inter;padding:3px 8px;border-radius:999px;}
+  .m{background:#eef2ff;color:#4f46e5;}
+  .d{background:#fef3c7;color:#b45309;}
+  .c{background:#f1f5f9;color:#64748b;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Maza<span style="color:#4f46e5;">CV</span> — screen export</h1>
+  <div class="sub">Each screen as a self-contained HTML file (inline CSS, fonts via CDN). Hand any file to your build agent.</div>
+
+  <h2>Foundations</h2>
+  <div class="grid">
+    <a class="card" href="00-style-tile.html"><span class="name">Style tile</span><span class="tag c">ref</span></a>
+    <a class="card" href="components-gauges-chips.html"><span class="name">Score gauges &amp; chips</span><span class="tag c">cmp</span></a>
+    <a class="card" href="components-upgrade-modal.html"><span class="name">Upgrade-limit modal</span><span class="tag c">cmp</span></a>
+    <a class="card" href="components-loaders-toasts.html"><span class="name">Loaders &amp; toasts</span><span class="tag c">cmp</span></a>
+  </div>
+
+  <h2>Screen 1 — Landing</h2>
+  <div class="grid">
+    <a class="card" href="01-landing-mobile.html"><span class="name">Landing</span><span class="tag m">mobile</span></a>
+    <a class="card" href="01-landing-desktop.html"><span class="name">Landing</span><span class="tag d">desktop</span></a>
+  </div>
+
+  <h2>Screen 2 — Scorer</h2>
+  <div class="grid">
+    <a class="card" href="02-scorer-empty-mobile.html"><span class="name">Empty / input</span><span class="tag m">mobile</span></a>
+    <a class="card" href="02-scorer-loading-mobile.html"><span class="name">Loading</span><span class="tag m">mobile</span></a>
+    <a class="card" href="02-scorer-success-mobile.html"><span class="name">Result · jhakaas (75–100)</span><span class="tag m">mobile</span></a>
+    <a class="card" href="02-scorer-mid-mobile.html"><span class="name">Result · banta hai (45–74)</span><span class="tag m">mobile</span></a>
+    <a class="card" href="02-scorer-low-mobile.html"><span class="name">Result · locha (0–44)</span><span class="tag m">mobile</span></a>
+    <a class="card" href="02-scorer-desktop.html"><span class="name">Input + results</span><span class="tag d">desktop</span></a>
+  </div>
+
+  <h2>Screen 3 — AI-Tailored Result</h2>
+  <div class="grid">
+    <a class="card" href="03-ai-working-mobile.html"><span class="name">AI working</span><span class="tag m">mobile</span></a>
+    <a class="card" href="03-ai-result-mobile.html"><span class="name">Tailored &amp; done</span><span class="tag m">mobile</span></a>
+  </div>
+
+  <h2>Screen 4 — Pricing</h2>
+  <div class="grid">
+    <a class="card" href="04-pricing-mobile.html"><span class="name">Pricing / upgrade</span><span class="tag m">mobile</span></a>
+  </div>
+
+  <h2>Screen 5 — Auth</h2>
+  <div class="grid">
+    <a class="card" href="05-login-mobile.html"><span class="name">Login</span><span class="tag m">mobile</span></a>
+    <a class="card" href="05-signup-mobile.html"><span class="name">Signup</span><span class="tag m">mobile</span></a>
+  </div>
+
+  <h2>Screen 6 — Dashboard / History</h2>
+  <div class="grid">
+    <a class="card" href="06-dashboard-empty-mobile.html"><span class="name">Empty state</span><span class="tag m">mobile</span></a>
+    <a class="card" href="06-dashboard-populated-mobile.html"><span class="name">Populated</span><span class="tag m">mobile</span></a>
+  </div>
+</div>
+</body>
+</html>

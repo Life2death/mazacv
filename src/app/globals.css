@@ -4,4 +4,9 @@
 
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: 'Poppins', system-ui, sans-serif;
 }
