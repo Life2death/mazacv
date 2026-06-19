@@ -3,6 +3,11 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+}
+
 export async function POST(req: Request) {
   try {
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
@@ -19,13 +24,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing payment details." }, { status: 400 });
     }
 
-    // Verify HMAC SHA256 signature
     const expected = crypto
       .createHmac("sha256", keySecret)
       .update(`${razorpayPaymentId}|${razorpaySubscriptionId}`)
       .digest("hex");
 
-    if (expected !== razorpaySignature) {
+    if (!safeCompare(expected, razorpaySignature)) {
       return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
     }
 
