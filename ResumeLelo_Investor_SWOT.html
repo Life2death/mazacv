@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResumeLelo — Investor SWOT & Market Analysis</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; color: #0f172a; background: #f1f5f9; line-height: 1.5; }
+
+  .page {
+    max-width: 1100px; margin: 0 auto; background: white;
+    box-shadow: 0 4px 30px rgba(0,0,0,.08);
+  }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #312e81 0%, #4f46e5 55%, #6366f1 100%);
+    color: white; padding: 48px 56px 40px;
+    position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -60px; top: -60px;
+    width: 280px; height: 280px; border-radius: 50%;
+    background: rgba(245,158,11,.18);
+  }
+  .hero .kicker { font-size: 13px; letter-spacing: .18em; text-transform: uppercase; color: #c7d2fe; font-weight: 600; }
+  .hero h1 { font-family: 'Poppins'; font-size: 44px; font-weight: 800; margin: 8px 0 6px; letter-spacing: -.5px; }
+  .hero .tagline { font-size: 18px; color: #e0e7ff; font-weight: 500; font-style: italic; }
+  .hero .meta { margin-top: 22px; display: flex; gap: 28px; flex-wrap: wrap; position: relative; z-index: 2; }
+  .hero .meta div { font-size: 13px; color: #c7d2fe; }
+  .hero .meta strong { display: block; font-family: 'Poppins'; font-size: 22px; font-weight: 700; color: white; }
+
+  .section { padding: 40px 56px; }
+  .section + .section { border-top: 1px solid #f1f5f9; }
+  .section-h { font-family: 'Poppins'; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #4f46e5; margin-bottom: 6px; }
+  .section-title { font-family: 'Poppins'; font-size: 26px; font-weight: 700; margin-bottom: 22px; color: #0f172a; }
+
+  /* MARKET STATS */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .stat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 22px 18px; text-align: center; }
+  .stat .num { font-family: 'Poppins'; font-size: 32px; font-weight: 800; color: #4f46e5; }
+  .stat .num.amber { color: #d97706; }
+  .stat .lbl { font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.4; }
+
+  .market-note { margin-top: 20px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 10px 10px 0; padding: 16px 20px; font-size: 14px; color: #78350f; }
+
+  /* SWOT GRID */
+  .swot { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .quad { border-radius: 16px; padding: 24px; border: 2px solid; }
+  .quad h3 { font-family: 'Poppins'; font-size: 17px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 9px; }
+  .quad h3 .ic { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; }
+  .quad ul { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+  .quad li { font-size: 13.5px; line-height: 1.5; padding-left: 18px; position: relative; }
+  .quad li::before { content: ""; position: absolute; left: 0; top: 7px; width: 7px; height: 7px; border-radius: 50%; }
+  .quad li strong { font-weight: 700; }
+
+  .q-s { background: #f0fdf4; border-color: #86efac; }
+  .q-s h3 { color: #15803d; } .q-s .ic { background: #dcfce7; } .q-s li::before { background: #22c55e; }
+  .q-w { background: #fff7ed; border-color: #fdba74; }
+  .q-w h3 { color: #c2410c; } .q-w .ic { background: #ffedd5; } .q-w li::before { background: #f97316; }
+  .q-o { background: #eff6ff; border-color: #93c5fd; }
+  .q-o h3 { color: #1d4ed8; } .q-o .ic { background: #dbeafe; } .q-o li::before { background: #3b82f6; }
+  .q-t { background: #fdf2f8; border-color: #f9a8d4; }
+  .q-t h3 { color: #9d174d; } .q-t .ic { background: #fce7f3; } .q-t li::before { background: #ec4899; }
+
+  /* COMPETITIVE TABLE */
+  .ctable { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; font-size: 13px; }
+  .ctable th { background: #1e1b4b; color: white; padding: 12px 14px; text-align: left; font-family: 'Poppins'; font-weight: 600; font-size: 12.5px; }
+  .ctable th.us { background: #4f46e5; }
+  .ctable td { padding: 11px 14px; border-bottom: 1px solid #f1f5f9; }
+  .ctable td.us { background: #eef2ff; font-weight: 600; }
+  .ctable tr:last-child td { border-bottom: none; }
+  .ctable .rowlbl { font-weight: 600; color: #475569; }
+  .tick { color: #16a34a; font-weight: 700; } .cross { color: #dc2626; font-weight: 700; } .part { color: #d97706; font-weight: 600; }
+
+  /* MOAT CALLOUT */
+  .moat { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .moat-card { background: linear-gradient(135deg,#4f46e5,#6366f1); color: white; border-radius: 14px; padding: 20px; }
+  .moat-card .mt { font-family: 'Poppins'; font-size: 15px; font-weight: 700; margin-bottom: 7px; }
+  .moat-card .md { font-size: 12.5px; color: #e0e7ff; line-height: 1.45; }
+
+  /* ASK */
+  .ask { background: #0f172a; color: white; border-radius: 16px; padding: 30px 34px; }
+  .ask h3 { font-family: 'Poppins'; font-size: 20px; font-weight: 700; margin-bottom: 14px; color: #fbbf24; }
+  .ask-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .ask-grid .item .t { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #94a3b8; }
+  .ask-grid .item .v { font-family: 'Poppins'; font-size: 15px; font-weight: 600; margin-top: 5px; color: #e2e8f0; line-height: 1.45; }
+
+  .footer { padding: 24px 56px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+
+  .pill { display: inline-block; background: #ede9fe; color: #5b21b6; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px; margin-left: 8px; vertical-align: middle; }
+
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; max-width: 100%; }
+    .section { page-break-inside: avoid; }
+    .hero::after { display: none; }
+  }
+  @media (max-width: 760px) {
+    .section { padding: 28px 22px; }
+    .hero { padding: 34px 24px; }
+    .hero h1 { font-size: 32px; }
+    .stats, .moat, .ask-grid, .swot { grid-template-columns: 1fr 1fr; }
+    .ctable { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="kicker">Investor Brief · Confidential</div>
+    <h1>ResumeLelo</h1>
+    <div class="tagline">"Resume ko banao jhakaas, naukri karo pakki."</div>
+    <div class="meta">
+      <div><strong>India-first</strong>AI ATS resume platform</div>
+      <div><strong>Freemium</strong>₹0 / ₹49 / ₹199 per month</div>
+      <div><strong>LiftLelo family</strong>Proven consumer brand</div>
+      <div><strong>Live</strong>MVP shipping June 2026</div>
+    </div>
+  </div>
+
+  <!-- MARKET -->
+  <div class="section">
+    <div class="section-h">The Opportunity</div>
+    <div class="section-title">A massive, underserved, mobile-first market</div>
+    <div class="stats">
+      <div class="stat"><div class="num amber">75%+</div><div class="lbl">of resumes in India are auto-rejected by ATS before a human sees them</div></div>
+      <div class="stat"><div class="num">90M+</div><div class="lbl">active job seekers across Naukri, LinkedIn India & campus pools</div></div>
+      <div class="stat"><div class="num">₹4,200</div><div class="lbl">/mo — what global tools (Jobscan) charge. Priced out of India</div></div>
+      <div class="stat"><div class="num">₹49</div><div class="lbl">our entry price — UPI-native, built for Indian wallets</div></div>
+    </div>
+    <div class="market-note">
+      <strong>The gap:</strong> Global leaders (Jobscan, Enhancv, Hiration) are too expensive and not localised.
+      Indian players (GoodSpace, ResumeVera, Rezup) are cheap but feature-thin — none offer a full AI rewrite,
+      a job tracker, or a culturally-native experience. <strong>ResumeLelo sits in the open middle: full-feature, India-priced, Hinglish-native.</strong>
+    </div>
+  </div>
+
+  <!-- SWOT -->
+  <div class="section">
+    <div class="section-h">Strategic Position</div>
+    <div class="section-title">ResumeLelo — SWOT Analysis</div>
+    <div class="swot">
+      <div class="quad q-s">
+        <h3><span class="ic">💪</span> Strengths</h3>
+        <ul>
+          <li><strong>Complete fix loop</strong> — Score → AI rewrite (Claude) → PDF/Word export. Competitors stop at the score.</li>
+          <li><strong>India-native pricing</strong> — ₹0 / ₹49 one-shot / ₹199-mo, UPI + Razorpay. ~95% cheaper than global tools.</li>
+          <li><strong>Hinglish, Mumbai-first UX</strong> — emotional differentiation no competitor has built.</li>
+          <li><strong>Existing brand equity</strong> — LiftLelo family means trust, a user base, and a cross-sell channel from day one.</li>
+          <li><strong>Truthful AI</strong> — no-fabrication constraint makes output ATS-safe and credible.</li>
+          <li><strong>Low cost to serve</strong> — free scoring is deterministic (no LLM cost); only paid actions incur tokens.</li>
+        </ul>
+      </div>
+      <div class="quad q-w">
+        <h3><span class="ic">⚠️</span> Weaknesses</h3>
+        <ul>
+          <li><strong>Early stage</strong> — MVP just launched; no scale, traction, or revenue track record yet.</li>
+          <li><strong>Feature gaps vs incumbents</strong> — no templates library, job tracker, or LinkedIn tool <em>yet</em> (on the roadmap).</li>
+          <li><strong>Single-founder build dependency</strong> — execution velocity tied to limited team bandwidth.</li>
+          <li><strong>LLM unit-cost exposure</strong> — heavy AI use must be metered carefully to protect margins.</li>
+          <li><strong>Brand new in a category</strong> — must educate users that scoring + fixing beats scoring alone.</li>
+        </ul>
+      </div>
+      <div class="quad q-o">
+        <h3><span class="ic">🚀</span> Opportunities</h3>
+        <ul>
+          <li><strong>Job Tracker moat</strong> — NO Indian competitor has a Kanban application tracker. Drives daily retention.</li>
+          <li><strong>Cover letters + LinkedIn optimiser</strong> — adjacent features, near-zero extra cost with Claude, none of the top 3 offer them.</li>
+          <li><strong>Campus & fresher market</strong> — partner with colleges/placement cells for B2B2C distribution at scale.</li>
+          <li><strong>Cross-sell the Lelo ecosystem</strong> — LiftLelo users → ResumeLelo → future "Lelo" career suite.</li>
+          <li><strong>Vernacular expansion</strong> — Marathi, Hindi, Tamil UX unlocks tier-2/3 cities competitors ignore.</li>
+          <li><strong>Recruiter/B2B side</strong> — sell bulk screening to SMEs later.</li>
+        </ul>
+      </div>
+      <div class="quad q-t">
+        <h3><span class="ic">⚡</span> Threats</h3>
+        <ul>
+          <li><strong>Fast-follow risk</strong> — ResumeVera/Rezup could add AI rewrite; low technical barrier to copy.</li>
+          <li><strong>Global players going local</strong> — if Jobscan/Hiration launch INR + UPI pricing, they bring brand weight.</li>
+          <li><strong>LLM provider pricing/policy shifts</strong> — margin and capability depend on third-party AI.</li>
+          <li><strong>Free-tool commoditisation</strong> — many free ATS checkers compress willingness to pay.</li>
+          <li><strong>Naukri/LinkedIn</strong> could bundle a native scorer, removing the need for a standalone tool.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPETITIVE LANDSCAPE -->
+  <div class="section">
+    <div class="section-h">Competitive Landscape</div>
+    <div class="section-title">ResumeLelo vs Top 3 Indian Players</div>
+    <table class="ctable">
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th class="us">ResumeLelo</th>
+          <th>GoodSpace</th>
+          <th>ResumeVera</th>
+          <th>Rezup</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="rowlbl">ATS match score + keyword gaps</td><td class="us tick">✔</td><td class="tick">✔</td><td class="tick">✔</td><td class="tick">✔</td></tr>
+        <tr><td class="rowlbl">Full AI resume rewrite</td><td class="us tick">✔ Claude</td><td class="cross">✗</td><td class="part">partial</td><td class="part">bullets only</td></tr>
+        <tr><td class="rowlbl">Cover letter generator</td><td class="us tick">✔ roadmap</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+        <tr><td class="rowlbl">PDF + Word export</td><td class="us tick">✔ both</td><td class="cross">✗</td><td class="part">PDF only</td><td class="part">PDF only</td></tr>
+        <tr><td class="rowlbl">Job tracker (Kanban)</td><td class="us tick">✔ roadmap</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+        <tr><td class="rowlbl">Hinglish / local-language UX</td><td class="us tick">✔ native</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+        <tr><td class="rowlbl">UPI / Razorpay payments</td><td class="us tick">✔</td><td class="tick">✔</td><td class="tick">✔</td><td class="tick">✔</td></tr>
+        <tr><td class="rowlbl">Free unlimited scoring</td><td class="us tick">✔</td><td class="part">1 scan</td><td class="cross">✗</td><td class="part">watermarked</td></tr>
+        <tr><td class="rowlbl">Recurring subscription model</td><td class="us tick">✔ ₹199/mo</td><td class="cross">✗</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+        <tr><td class="rowlbl">Established consumer brand</td><td class="us tick">✔ LiftLelo</td><td class="part">limited</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- MOAT -->
+  <div class="section">
+    <div class="section-h">Why We Win</div>
+    <div class="section-title">Four defensible advantages</div>
+    <div class="moat">
+      <div class="moat-card"><div class="mt">🔁 The Fix Loop</div><div class="md">Competitors only score. We score AND fix AND export — users finish the job inside ResumeLelo.</div></div>
+      <div class="moat-card"><div class="mt">📌 Stickiness</div><div class="md">The job tracker turns a one-off tool into a daily habit. No Indian rival has it.</div></div>
+      <div class="moat-card"><div class="mt">🇮🇳 Local Soul</div><div class="md">Hinglish UX + UPI + Naukri-tuning. Built for Bharat, not adapted from the West.</div></div>
+      <div class="moat-card"><div class="mt">🤝 Brand & Distribution</div><div class="md">LiftLelo's audience is a ready acquisition channel — CAC advantage from day one.</div></div>
+    </div>
+  </div>
+
+  <!-- ASK -->
+  <div class="section">
+    <div class="ask">
+      <h3>The Model & The Ask</h3>
+      <div class="ask-grid">
+        <div class="item"><div class="t">Revenue Model</div><div class="v">Freemium. Free scoring funnel → ₹49 one-shot → ₹199/mo &amp; ₹999/yr Pro. Future B2B2C (campus) + recruiter side.</div></div>
+        <div class="item"><div class="t">Unit Economics</div><div class="v">Free tier near-zero cost (no LLM). Paid actions metered to protect gross margin. UPI = low payment friction.</div></div>
+        <div class="item"><div class="t">Use of Funds</div><div class="v">Roadmap execution (tracker, templates, LinkedIn), Naukri-tuned AI, campus partnerships, and growth marketing.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>ResumeLelo · A LiftLelo company · Mumbai, Maharashtra, India</span>
+    <span>Prepared June 2026 · Confidential — for investor discussion only</span>
+  </div>
+
+</div>
+</body>
+</html>
