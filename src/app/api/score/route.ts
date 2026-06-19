@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractText } from "@/lib/parse";
 import { scoreResume } from "@/lib/score";
+import { heuristicParseResume } from "@/lib/resume-parser";
 import { getSessionUser } from "@/lib/auth";
 import { checkAndConsume } from "@/lib/usage";
 import type { Portal } from "@/lib/types";
@@ -42,7 +43,8 @@ export async function POST(req: Request) {
     }
 
     const result = scoreResume(resumeText, jd, portal);
-    return NextResponse.json({ ...result, resumeText, remaining: gate.remaining });
+    const parsedResume = heuristicParseResume(resumeText);
+    return NextResponse.json({ ...result, resumeText, parsedResume, remaining: gate.remaining });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Scoring failed.";
     return NextResponse.json({ error: message }, { status: 500 });

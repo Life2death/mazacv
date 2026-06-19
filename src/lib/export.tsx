@@ -5,12 +5,159 @@ import {
   Paragraph,
   TextRun,
   HeadingLevel,
+  AlignmentType,
 } from "docx";
 import type { JsonResume, TemplateId } from "./types";
 import { getTemplateComponent, ClassicTemplate } from "./templates";
 
-/** Build a .docx resume from plain text (one line per paragraph). */
-export async function toDocx(resumeText: string): Promise<Buffer> {
+/** Build a .docx resume from structured JSON Resume data. */
+export async function toDocx(resume: JsonResume): Promise<Buffer> {
+  const children: Paragraph[] = [];
+
+  // Header: name + contact
+  const b = resume.basics;
+  children.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      heading: HeadingLevel.TITLE,
+      children: [new TextRun({ text: b.name, bold: true, size: 32 })],
+    })
+  );
+  const contactParts = [b.email, b.phone, b.location].filter(Boolean);
+  if (contactParts.length > 0) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 200 },
+        children: [new TextRun({ text: contactParts.join(" · "), size: 20 })],
+      })
+    );
+  }
+
+  // Summary
+  if (b.summary) {
+    children.push(
+      new Paragraph({
+        spacing: { after: 200 },
+        children: [new TextRun({ text: b.summary, size: 20 })],
+      })
+    );
+  }
+
+  // Experience
+  for (const w of resume.work) {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 300, after: 40 },
+        children: [new TextRun({ text: w.position, bold: true, size: 22 })],
+      })
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 80 },
+        children: [
+          new TextRun({ text: w.company, size: 20 }),
+          new TextRun({
+            text: `  —  ${w.startDate} — ${w.endDate || "Present"}`,
+            size: 18,
+            color: "666666",
+          }),
+        ],
+      })
+    );
+    for (const h of w.highlights) {
+      children.push(
+        new Paragraph({
+          bullet: { level: 0 },
+          spacing: { after: 40 },
+          children: [new TextRun({ text: h, size: 20 })],
+        })
+      );
+    }
+  }
+
+  // Education
+  for (const e of resume.education) {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 300, after: 40 },
+        children: [new TextRun({ text: "Education", bold: true, size: 22 })],
+      })
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 80 },
+        children: [
+          new TextRun({ text: `${e.studyType} in ${e.area}`, size: 20, bold: true }),
+          new TextRun({
+            text: `  —  ${e.startDate} — ${e.endDate || "Present"}`,
+            size: 18,
+            color: "666666",
+          }),
+        ],
+      })
+    );
+    children.push(
+      new Paragraph({
+        spacing: { after: 200 },
+        children: [new TextRun({ text: e.institution, size: 20 })],
+      })
+    );
+  }
+
+  // Skills
+  if (resume.skills.length > 0) {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 300, after: 120 },
+        children: [new TextRun({ text: "Skills", bold: true, size: 22 })],
+      })
+    );
+    for (const sk of resume.skills) {
+      children.push(
+        new Paragraph({
+          spacing: { after: 40 },
+          children: [
+            new TextRun({ text: `${sk.name}: `, bold: true, size: 20 }),
+            new TextRun({ text: sk.keywords.join(", "), size: 20 }),
+          ],
+        })
+      );
+    }
+  }
+
+  // Certifications
+  if (resume.certifications && resume.certifications.length > 0) {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        spacing: { before: 300, after: 120 },
+        children: [new TextRun({ text: "Certifications", bold: true, size: 22 })],
+      })
+    );
+    for (const c of resume.certifications) {
+      children.push(
+        new Paragraph({
+          bullet: { level: 0 },
+          spacing: { after: 40 },
+          children: [
+            new TextRun({ text: c.name, size: 20 }),
+            ...(c.issuer ? [new TextRun({ text: ` — ${c.issuer}`, size: 18, color: "666666" })] : []),
+          ],
+        })
+      );
+    }
+  }
+
+  const doc = new Document({ sections: [{ children }] });
+  return Buffer.from(await Packer.toBuffer(doc));
+}
+
+/** Legacy plain-text DOCX fallback (for cover letters etc.). */
+export async function toDocxLegacy(resumeText: string): Promise<Buffer> {
   const lines = resumeText.split(/\r?\n/);
   const children = lines.map((line) => {
     const trimmed = line.trim();

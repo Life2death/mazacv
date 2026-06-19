@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { NavBar } from "@/components/NavBar";
 import { useAuth } from "@/components/AuthProvider";
-import type { ScoreResult, Portal, CoverLetterResult, TemplateId } from "@/lib/types";
+import type { ScoreResult, Portal, CoverLetterResult, TemplateId, JsonResume } from "@/lib/types";
 
 interface ScoreResponse extends ScoreResult {
   resumeText: string;
+  parsedResume: JsonResume;
 }
 
 interface RewriteResponse {
@@ -14,6 +15,7 @@ interface RewriteResponse {
   changes: string[];
   scoreBefore: number;
   scoreAfter: number;
+  parsedResume: JsonResume;
 }
 
 function reaction(score: number) {
@@ -72,6 +74,7 @@ export default function ScanPage() {
 
   const [generatingCover, setGeneratingCover] = useState(false);
   const [coverLetter, setCoverLetter] = useState<CoverLetterResult | null>(null);
+  const [parsedResume, setParsedResume] = useState<JsonResume | null>(null);
 
   const [templateId, setTemplateId] = useState<TemplateId>("classic");
   const [accentColor, setAccentColor] = useState("#4f46e5");
@@ -79,6 +82,8 @@ export default function ScanPage() {
     { id: "classic" as TemplateId, name: "Classic", tier: "ATS-Safe", desc: "Single column, serif" },
     { id: "modern" as TemplateId, name: "Modern", tier: "ATS-Safe", desc: "Sans-serif with accent bar" },
     { id: "compact" as TemplateId, name: "Compact", tier: "ATS-Safe", desc: "Tight spacing, 1 page" },
+    { id: "minimal" as TemplateId, name: "Minimal", tier: "ATS-Safe", desc: "Ultra-compact, small font" },
+    { id: "professional" as TemplateId, name: "Professional", tier: "ATS-Safe", desc: "Numbered sections, labels" },
     { id: "split" as TemplateId, name: "Split", tier: "Designer", desc: "Two-column with sidebar" },
   ] as const;
   const ACCENT_COLORS = [
@@ -100,6 +105,7 @@ export default function ScanPage() {
     setResult(null);
     setRewrite(null);
     setCoverLetter(null);
+    setParsedResume(null);
     if (!jd.trim()) return setError("JD yahan paste maar — job description is required.");
     if (!file && !resumeText.trim())
       return setError("Apna resume daal — upload a file or paste text.");
@@ -115,6 +121,7 @@ export default function ScanPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Scoring failed.");
       setResult(data);
+      setParsedResume(data.parsedResume);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Arre, kuch locha ho gaya. Phirse try kar.");
     } finally {
@@ -135,6 +142,7 @@ export default function ScanPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Rewrite failed.");
       setRewrite(data);
+      setParsedResume(data.parsedResume);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Rewrite failed.");
     } finally {
@@ -183,6 +191,7 @@ export default function ScanPage() {
       headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         resumeText: text,
+        parsedResume,
         format,
         templateId,
         accentColor,
@@ -407,6 +416,12 @@ export default function ScanPage() {
             value={rewrite.resume}
             className="h-96 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs"
           />
+
+          {rewrite.resume.split(/\s+/).length > 800 && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              ⚠️ Resume bahut lamba hai — 2 page se zyada ho sakta hai. Trim kar lo, boss!
+            </div>
+          )}
 
           <div className="mt-5">
             <div className="mb-2 text-xs font-semibold text-slate-500">Resume template</div>

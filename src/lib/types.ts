@@ -72,7 +72,7 @@ export interface JsonResume {
   }>;
 }
 
-export type TemplateId = "classic" | "modern" | "compact" | "split";
+export type TemplateId = "classic" | "modern" | "compact" | "split" | "minimal" | "professional";
 
 export interface TemplateInfo {
   id: TemplateId;

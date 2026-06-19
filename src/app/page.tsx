@@ -88,7 +88,7 @@ export default function LandingPage() {
         <div className="flex items-center justify-center gap-1">
           Banaya Mumbai mein, ❤️ se.{" "}
           <a
-            href="https://liftselo.in"
+            href="https://liftlelo.com"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-brand hover:underline"

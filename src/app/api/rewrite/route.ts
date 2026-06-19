@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { rewriteResume } from "@/lib/rewrite";
 import { scoreResume } from "@/lib/score";
+import { heuristicParseResume } from "@/lib/resume-parser";
 import { getSessionUser } from "@/lib/auth";
 import { checkAndConsume } from "@/lib/usage";
 
@@ -30,10 +31,13 @@ export async function POST(req: Request) {
     const rewritten = await rewriteResume(resumeText, jd, before.missingKeywords);
     const after = scoreResume(rewritten.resume, jd);
 
+    const parsedResume = heuristicParseResume(rewritten.resume);
+
     return NextResponse.json({
       ...rewritten,
       scoreBefore: before.score,
       scoreAfter: after.score,
+      parsedResume,
       remaining: gate.remaining,
     });
   } catch (err) {
