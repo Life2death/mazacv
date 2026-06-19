@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { NavBar } from "@/components/NavBar";
 import { useAuth } from "@/components/AuthProvider";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { JobsSection } from "@/components/JobsSection";
 import type { ScoreResult, Portal, CoverLetterResult, TemplateId, JsonResume, JobListing } from "@/lib/types";
 
 interface ScoreResponse extends ScoreResult {
@@ -90,6 +91,7 @@ export default function ScanPage() {
   const [linkedinOptimized, setLinkedinOptimized] = useState(false);
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
+  const [mode, setMode] = useState<"choose" | "ats" | "jobs">("choose");
 
   // Load scan from history (?id=xxx)
   useEffect(() => {
@@ -128,6 +130,7 @@ export default function ScanPage() {
             parsedResume: { basics: { name: "", email: "" }, skills: [], work: [], education: [] },
           });
         }
+        setMode("ats");
       } catch {
         // Silently fail — user can still use the form
       }
@@ -342,6 +345,49 @@ export default function ScanPage() {
     }
   }
 
+  async function handleJobsSearch() {
+    setError("");
+    setJobs([]);
+    if (!file && !resumeText.trim())
+      return setError("Apna resume daal — upload a file or paste text.");
+    setJobsLoading(true);
+    try {
+      const fd = new FormData();
+      if (file) fd.append("resume", file);
+      if (resumeText.trim()) fd.append("resumeText", resumeText);
+      const extractRes = await fetch("/api/extract-skills", { method: "POST", body: fd, headers: authHeaders() });
+      const { skills } = await extractRes.json();
+      if (!skills || skills.length === 0) {
+        setJobsLoading(false);
+        return setError("Resume se skills nahi nikal paaye — thoda detail daal ke try kar");
+      }
+      const jobsRes = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ skills, location: "" }),
+      });
+      const { jobs: found } = await jobsRes.json();
+      setJobs(found ?? []);
+    } catch {
+      setError("Jobs search mein locha aa gaya — dobara try kar.");
+    } finally {
+      setJobsLoading(false);
+    }
+  }
+
+  function handleScoreAgainst(job: JobListing) {
+    if (!job.description) {
+      setJd("");
+      setError("Is job ka full description nahi hai — JD manually paste kar ke score nikaal");
+      setMode("ats");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    setJd(job.description);
+    setMode("ats");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function handleExport(
     format: "pdf" | "docx",
     textOverride?: string,
@@ -380,85 +426,167 @@ export default function ScanPage() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
       <NavBar showLinks={false} />
-      <div className="mb-8 text-center">
-        <p className="mx-auto max-w-md text-slate-600">
-          Score your resume against any job description — free. Then let AI tailor
-          it and export to PDF or Word.
-        </p>
-        {scoresLeft !== null && scoresLeft < 3 && (
-          <div className="mt-3 flex items-center justify-center gap-4 text-xs">
-            <span className={`rounded-full px-3 py-1 font-medium ${
-              scoresLeft > 0
-                ? "bg-amber-50 text-amber-700"
-                : "bg-red-50 text-red-700"
-            }`}>
-              {scoresLeft > 0
-                ? `${scoresLeft} free score${scoresLeft !== 1 ? "s" : ""} left aaj ke liye`
-                : "Free limit khatam! 😅"}
-            </span>
-            {rewritesLeft !== null && rewritesLeft < 1 && (
-              <span className="rounded-full bg-amber-50 px-3 py-1 font-medium text-amber-700">
-                {rewritesLeft > 0
-                  ? `${rewritesLeft} rewrite left`
-                  : "No rewrites left"}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-1 font-display font-semibold">Apna resume idhar daal 📄</h2>
-          <p className="mb-3 text-xs text-slate-400">Upload PDF, Word or paste text</p>
-          <input
-            type="file"
-            accept=".pdf,.docx,.txt"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="mb-3 block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand/10 file:px-4 file:py-2 file:font-semibold file:text-brand"
-          />
-          <p className="mb-2 text-xs text-slate-400">ya paste karo</p>
-          <textarea
-            value={resumeText}
-            onChange={(e) => setResumeText(e.target.value)}
-            placeholder="Paste your resume text here…"
-            className="h-40 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm focus:border-brand focus:outline-none"
-          />
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-1 font-display font-semibold">JD yahan paste maar</h2>
-          <p className="mb-3 text-xs text-slate-400">Paste the full job description</p>
-          <textarea
-            value={jd}
-            onChange={(e) => setJd(e.target.value)}
-            placeholder="Paste the full job description here…"
-            className="h-40 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm focus:border-brand focus:outline-none"
-          />
-          <label className="mt-3 block text-xs font-medium text-slate-500">
-            Target portal
-          </label>
-          <select
-            value={portal}
-            onChange={(e) => setPortal(e.target.value as Portal)}
-            className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:border-brand focus:outline-none"
-          >
-            <option value="generic">Generic — koi bhi job</option>
-            <option value="naukri">Naukri.com</option>
-            <option value="linkedin_india">LinkedIn India</option>
-          </select>
-        </div>
-      </section>
-
-      <div className="mt-6 text-center">
+      {/* Mode back link */}
+      {mode !== "choose" && (
         <button
-          onClick={handleScore}
-          disabled={loading}
-          className="rounded-xl bg-brand px-10 py-3.5 font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:opacity-50"
+          onClick={() => { setMode("choose"); setError(""); }}
+          className="mb-4 flex items-center gap-1 text-sm font-medium text-slate-500 transition hover:text-brand"
         >
-          {loading ? "Ruk, calculate kar raha hu… ⏳" : "Score nikaal!"}
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          wapas
         </button>
-      </div>
+      )}
+
+      {/* Intent chooser */}
+      {mode === "choose" && (
+        <div className="mx-auto max-w-lg py-16">
+          <h1 className="mb-2 text-center font-display text-2xl font-bold text-slate-900">
+            Kya karna chahte ho? 🤔
+          </h1>
+          <p className="mb-8 text-center text-sm text-slate-500">Do mein se ek chuno — dono free hai!</p>
+          <div className="grid gap-4">
+            <button
+              onClick={() => setMode("ats")}
+              className="rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-brand hover:shadow-md"
+            >
+              <div className="text-2xl mb-1">📊</div>
+              <div className="font-display text-lg font-bold text-slate-900">ATS Score check</div>
+              <p className="mt-1 text-sm text-slate-500">Resume vs JD ka score + AI tailoring</p>
+            </button>
+            <button
+              onClick={() => setMode("jobs")}
+              className="rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-brand hover:shadow-md"
+            >
+              <div className="text-2xl mb-1">🔍</div>
+              <div className="font-display text-lg font-bold text-slate-900">Jobs dhundo</div>
+              <p className="mt-1 text-sm text-slate-500">Resume se matching jobs — JD ki zaroorat nahi</p>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ATS mode heading */}
+      {mode === "ats" && (
+        <div className="mb-8 text-center">
+          <p className="mx-auto max-w-md text-slate-600">
+            Score your resume against any job description — free. Then let AI tailor
+            it and export to PDF or Word.
+          </p>
+          {scoresLeft !== null && scoresLeft < 3 && (
+            <div className="mt-3 flex items-center justify-center gap-4 text-xs">
+              <span className={`rounded-full px-3 py-1 font-medium ${
+                scoresLeft > 0
+                  ? "bg-amber-50 text-amber-700"
+                  : "bg-red-50 text-red-700"
+              }`}>
+                {scoresLeft > 0
+                  ? `${scoresLeft} free score${scoresLeft !== 1 ? "s" : ""} left aaj ke liye`
+                  : "Free limit khatam! 😅"}
+              </span>
+              {rewritesLeft !== null && rewritesLeft < 1 && (
+                <span className="rounded-full bg-amber-50 px-3 py-1 font-medium text-amber-700">
+                  {rewritesLeft > 0
+                    ? `${rewritesLeft} rewrite left`
+                    : "No rewrites left"}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ATS mode: full form */}
+      {mode === "ats" && (
+        <>
+          <section className="grid gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-1 font-display font-semibold">Apna resume idhar daal 📄</h2>
+              <p className="mb-3 text-xs text-slate-400">Upload PDF, Word or paste text</p>
+              <input
+                type="file"
+                accept=".pdf,.docx,.txt"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="mb-3 block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand/10 file:px-4 file:py-2 file:font-semibold file:text-brand"
+              />
+              <p className="mb-2 text-xs text-slate-400">ya paste karo</p>
+              <textarea
+                value={resumeText}
+                onChange={(e) => setResumeText(e.target.value)}
+                placeholder="Paste your resume text here…"
+                className="h-40 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm focus:border-brand focus:outline-none"
+              />
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-1 font-display font-semibold">JD yahan paste maar</h2>
+              <p className="mb-3 text-xs text-slate-400">Paste the full job description</p>
+              <textarea
+                value={jd}
+                onChange={(e) => setJd(e.target.value)}
+                placeholder="Paste the full job description here…"
+                className="h-40 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm focus:border-brand focus:outline-none"
+              />
+              <label className="mt-3 block text-xs font-medium text-slate-500">
+                Target portal
+              </label>
+              <select
+                value={portal}
+                onChange={(e) => setPortal(e.target.value as Portal)}
+                className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:border-brand focus:outline-none"
+              >
+                <option value="generic">Generic — koi bhi job</option>
+                <option value="naukri">Naukri.com</option>
+                <option value="linkedin_india">LinkedIn India</option>
+              </select>
+            </div>
+          </section>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={handleScore}
+              disabled={loading}
+              className="rounded-xl bg-brand px-10 py-3.5 font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:opacity-50"
+            >
+              {loading ? "Ruk, calculate kar raha hu… ⏳" : "Score nikaal!"}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Jobs mode: resume-only form */}
+      {mode === "jobs" && (
+        <div className="mx-auto max-w-lg">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 font-display font-semibold">Apna resume idhar daal 📄</h2>
+            <p className="mb-3 text-xs text-slate-400">Upload PDF, Word or paste text</p>
+            <input
+              type="file"
+              accept=".pdf,.docx,.txt"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="mb-3 block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand/10 file:px-4 file:py-2 file:font-semibold file:text-brand"
+            />
+            <p className="mb-2 text-xs text-slate-400">ya paste karo</p>
+            <textarea
+              value={resumeText}
+              onChange={(e) => setResumeText(e.target.value)}
+              placeholder="Paste your resume text here…"
+              className="h-40 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm focus:border-brand focus:outline-none"
+            />
+          </div>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={handleJobsSearch}
+              disabled={jobsLoading}
+              className="rounded-xl bg-brand px-10 py-3.5 font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:opacity-50"
+            >
+              {jobsLoading ? "Jobs dhun rahe hai... 🔍" : "Jobs dhundo 🔍"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <p className="mx-auto mt-4 max-w-md rounded-xl bg-red-50 p-3 text-center text-sm text-red-700">
@@ -466,7 +594,7 @@ export default function ScanPage() {
         </p>
       )}
 
-      {result && r && (
+      {mode === "ats" && result && r && (
         <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="text-center">
             <div className="font-display text-2xl font-extrabold" style={{ color: r.color }}>
@@ -652,7 +780,7 @@ export default function ScanPage() {
         </section>
       )}
 
-      {rewrite && (
+      {mode === "ats" && rewrite && (
         <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <h2 className="font-display font-semibold">Ho gaya boss! Score upar gaya 📈</h2>
@@ -774,7 +902,7 @@ export default function ScanPage() {
         </section>
       )}
 
-      {coverLetter && (
+      {mode === "ats" && coverLetter && (
         <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="font-display font-semibold">Cover letter ready hai boss! 💌</h2>
 
@@ -815,94 +943,8 @@ export default function ScanPage() {
         </section>
       )}
 
-      {/* Jobs section */}
-      {result && (
-        <section className="mt-8">
-          <h2 className="mb-4 font-display text-xl font-bold text-slate-900">
-            Yeh jobs tere liye 🔍
-            {jobsLoading && <span className="ml-2 text-sm font-normal text-slate-400">dhun rahe hai...</span>}
-          </h2>
-          <div className="space-y-3">
-            {jobsLoading && jobs.length === 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-400">
-                Jobs search kar rahe hai...
-              </div>
-            )}
-            {!jobsLoading && jobs.length === 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
-                <p className="text-sm text-slate-500">Abhi koi job nahi mili — thodi der baad phir try karo</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Agar Adzuna keys configure hain to resume skills ke hisaab se matching jobs dikhengi.
-                </p>
-              </div>
-            )}
-            {jobs.map((job) => {
-              const fitColor =
-                job.fitScore >= 75 ? "#16a34a" : job.fitScore >= 45 ? "#f59e0b" : "#ef4444";
-              const fitLabel =
-                job.fitScore >= 75 ? "Jhakaas" : job.fitScore >= 45 ? "Thoda aur" : "Locha hai";
-              const tagColor =
-                job.freshnessTag === "FRESH"
-                  ? "bg-green-100 text-green-700"
-                  : job.freshnessTag === "AGING"
-                    ? "bg-amber-100 text-amber-700"
-                    : "bg-slate-100 text-slate-500";
-              return (
-                <div
-                  key={job.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-slate-900 truncate">{job.title}</h3>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${tagColor}`}>
-                          {job.freshnessTag}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-sm text-slate-500">{job.company}</p>
-                      <p className="text-xs text-slate-400">{job.location}</p>
-                      {job.salary && <p className="mt-0.5 text-xs font-medium text-slate-600">{job.salary}</p>}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-center gap-1">
-                      <div
-                        className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white"
-                        style={{ backgroundColor: fitColor }}
-                      >
-                        {job.fitScore}
-                      </div>
-                      <span className="text-[10px] font-semibold uppercase" style={{ color: fitColor }}>
-                        {fitLabel}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
-                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                      {job.portal}
-                    </span>
-                    <a
-                      href={job.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-md bg-brand/10 px-3 py-1 text-xs font-medium text-brand transition hover:bg-brand/20"
-                    >
-                      Dekho 👀
-                    </a>
-                    <button
-                      onClick={() => {
-                        setJd(job.description);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
-                      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-                    >
-                      Is job ke liye score nikaal
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+      {(mode === "ats" || mode === "jobs") && (
+        <JobsSection jobs={jobs} loading={jobsLoading} onScoreAgainst={handleScoreAgainst} />
       )}
 
       <footer className="mt-12 text-center text-xs text-slate-400">
