@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { NavBar } from "@/components/NavBar";
 import { useAuth } from "@/components/AuthProvider";
 import { UpgradeModal } from "@/components/UpgradeModal";
-import type { ScoreResult, Portal, CoverLetterResult, TemplateId, JsonResume } from "@/lib/types";
+import type { ScoreResult, Portal, CoverLetterResult, TemplateId, JsonResume, JobListing } from "@/lib/types";
 
 interface ScoreResponse extends ScoreResult {
   resumeText: string;
@@ -88,6 +88,8 @@ export default function ScanPage() {
   const [publishing, setPublishing] = useState(false);
   const [linkedinUrl, setLinkedinUrl] = useState<string | null>(null);
   const [linkedinOptimized, setLinkedinOptimized] = useState(false);
+  const [jobs, setJobs] = useState<JobListing[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
 
   // Load scan from history (?id=xxx)
   useEffect(() => {
@@ -208,6 +210,24 @@ export default function ScanPage() {
         }
         }
       } catch { /* silent */ }
+
+      // Background job fetch (non-blocking)
+      const resumeSkills = [
+        ...(data.matchedKeywords ?? []),
+        ...(data.parsedResume?.skills?.flatMap((s: { name: string; keywords: string[] }) => [s.name, ...s.keywords]) ?? []),
+      ];
+      const uniqueSkills = [...new Set(resumeSkills.map((s) => s.toLowerCase()))].filter(Boolean);
+      if (uniqueSkills.length > 0) {
+        setJobsLoading(true);
+        fetch("/api/jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ skills: uniqueSkills, location: "" }),
+        })
+          .then((r) => r.json())
+          .then((d) => { setJobs(d.jobs ?? []); setJobsLoading(false); })
+          .catch(() => setJobsLoading(false));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Arre, kuch locha ho gaya. Phirse try kar.");
     } finally {
@@ -791,6 +811,96 @@ export default function ScanPage() {
             >
               Word mein le ja
             </button>
+          </div>
+        </section>
+      )}
+
+      {/* Jobs section */}
+      {result && (
+        <section className="mt-8">
+          <h2 className="mb-4 font-display text-xl font-bold text-slate-900">
+            Yeh jobs tere liye 🔍
+            {jobsLoading && <span className="ml-2 text-sm font-normal text-slate-400">dhun rahe hai...</span>}
+          </h2>
+          <div className="space-y-3">
+            {jobsLoading && jobs.length === 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-400">
+                Jobs search kar rahe hai...
+              </div>
+            )}
+            {!jobsLoading && jobs.length === 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
+                <p className="text-sm text-slate-500">Abhi koi job nahi mili — thodi der baad phir try karo</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Agar Adzuna keys configure hain to resume skills ke hisaab se matching jobs dikhengi.
+                </p>
+              </div>
+            )}
+            {jobs.map((job) => {
+              const fitColor =
+                job.fitScore >= 75 ? "#16a34a" : job.fitScore >= 45 ? "#f59e0b" : "#ef4444";
+              const fitLabel =
+                job.fitScore >= 75 ? "Jhakaas" : job.fitScore >= 45 ? "Thoda aur" : "Locha hai";
+              const tagColor =
+                job.freshnessTag === "FRESH"
+                  ? "bg-green-100 text-green-700"
+                  : job.freshnessTag === "AGING"
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-slate-100 text-slate-500";
+              return (
+                <div
+                  key={job.id}
+                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-slate-900 truncate">{job.title}</h3>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${tagColor}`}>
+                          {job.freshnessTag}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-sm text-slate-500">{job.company}</p>
+                      <p className="text-xs text-slate-400">{job.location}</p>
+                      {job.salary && <p className="mt-0.5 text-xs font-medium text-slate-600">{job.salary}</p>}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-center gap-1">
+                      <div
+                        className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white"
+                        style={{ backgroundColor: fitColor }}
+                      >
+                        {job.fitScore}
+                      </div>
+                      <span className="text-[10px] font-semibold uppercase" style={{ color: fitColor }}>
+                        {fitLabel}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                      {job.portal}
+                    </span>
+                    <a
+                      href={job.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md bg-brand/10 px-3 py-1 text-xs font-medium text-brand transition hover:bg-brand/20"
+                    >
+                      Dekho 👀
+                    </a>
+                    <button
+                      onClick={() => {
+                        setJd(job.description);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                    >
+                      Is job ke liye score nikaal
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

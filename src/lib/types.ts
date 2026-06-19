@@ -108,6 +108,20 @@ export interface ResumePage {
   created_at: string;
 }
 
+export interface JobListing {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  salary: string;
+  postedAt: string;
+  url: string;
+  portal: "Adzuna" | "LinkedIn";
+  description: string;
+  fitScore: number;
+  freshnessTag: "FRESH" | "AGING" | "STALE" | "UNKNOWN";
+}
+
 export interface RewriteResult {
   /** The rewritten resume as plain text (one logical line per row) */
   resume: string;
