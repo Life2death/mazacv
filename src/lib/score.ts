@@ -64,6 +64,12 @@ const INDIAN_CERTIFICATIONS = new Set([
   "six sigma", "green belt", "black belt", "comptia",
 ]);
 
+/** Match multi-word phrases from a dictionary against raw text (lowercased). */
+function matchPhrasesInText(text: string, dictionary: Set<string>): string[] {
+  const lower = text.toLowerCase();
+  return [...dictionary].filter((phrase) => lower.includes(phrase));
+}
+
 function tokenize(text: string): string[] {
   return text
     .toLowerCase()
@@ -93,24 +99,33 @@ function cosine(a: Map<string, number>, b: Map<string, number>): number {
 
 /**
  * Pull the most "important" keywords from the JD: highest-frequency content
- * terms plus any capitalized/known tech tokens. Returns up to `limit` terms.
+ * terms plus any capitalized/known tech tokens. Also merges Indian-specific
+ * skills and certifications found in the raw text. Returns up to `limit` terms.
  */
 function importantKeywords(jdText: string, limit = 30): string[] {
   const tokens = tokenize(jdText);
   const tf = termFreq(tokens);
-  return [...tf.entries()]
+  const freqTerms = [...tf.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([k]) => k);
+
+  // Merge Indian skills/certs found in raw JD text
+  const indianSkills = matchPhrasesInText(jdText, INDIAN_SKILLS);
+  const indianCerts = matchPhrasesInText(jdText, INDIAN_CERTIFICATIONS);
+
+  return [...new Set([...freqTerms, ...indianSkills, ...indianCerts])];
 }
 
 function classifyKeywords(
-  keywords: string[]
+  keywords: string[],
+  rawText: string
 ): { hard: string[]; soft: string[] } {
   const hard: string[] = [];
   const soft: string[] = [];
+  const matchedSoft = matchPhrasesInText(rawText, SOFT_SKILLS);
   for (const k of keywords) {
-    if (SOFT_SKILLS.has(k)) {
+    if (matchedSoft.includes(k) || SOFT_SKILLS.has(k)) {
       soft.push(k);
     } else {
       hard.push(k);
@@ -119,13 +134,14 @@ function classifyKeywords(
   return { hard, soft };
 }
 
+/** Searchability = how easily a machine can parse structured data from the resume. */
 function computeSearchability(resumeText: string): number {
   let score = 0;
-  const words = resumeText.split(/\s+/).filter(Boolean).length;
-  if (words >= 200) score += 20;
-  else if (words >= 100) score += 10;
+  // Contact info parseable (email, phone)
+  if (/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/.test(resumeText)) score += 25;
+  if (/\b[\+\(]?\d[\d\s\-\(\)]{7,}\d\b/.test(resumeText)) score += 15;
 
-  if (/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/.test(resumeText)) score += 20;
+  // Section headers detected as clear delimiters
   if (/\b(experience|work history|employment)\b/i.test(resumeText)) score += 20;
   if (hasIndianEducation(resumeText) || /\b(education|qualification)\b/i.test(resumeText)) score += 20;
   if (/\b(skills|technologies|competencies)\b/i.test(resumeText)) score += 20;
@@ -133,15 +149,24 @@ function computeSearchability(resumeText: string): number {
   return Math.min(score, 100);
 }
 
-function computeFormatHealth(resumeText: string): number {
+/** Format Health = structural quality for ATS, derived from warnings + metric density. */
+function computeFormatHealth(
+  resumeText: string,
+  structuralWarningCount: number
+): number {
   let score = 100;
-  const words = resumeText.split(/\s+/).filter(Boolean).length;
-  if (words < 200) score -= 25;
-  if (!/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/.test(resumeText)) score -= 15;
-  if (!/\b(experience|work history|employment)\b/i.test(resumeText)) score -= 20;
-  if (!hasIndianEducation(resumeText) && !/\b(education|qualification)\b/i.test(resumeText)) score -= 20;
-  if (!/\b(skills|technologies|competencies)\b/i.test(resumeText)) score -= 20;
-  return Math.max(score, 0);
+  // Deduct based on structural issues (each warning = -20)
+  score -= structuralWarningCount * 20;
+
+  // Bonus for metric density (numbers, percentages, amounts)
+  const metricsCount = (
+    resumeText.match(
+      /\b\d+(?:\.\d+)?\s*(?:%|percent|lakh|million|k|₹|\$|years?|months?|x\s*[0-9])/gi
+    ) || []
+  ).length;
+  score += Math.min(metricsCount * 5, 20);
+
+  return Math.max(Math.min(score, 100), 0);
 }
 
 export function scoreResume(resumeText: string, jdText: string, portal: Portal = "generic"): ScoreResult {
@@ -157,32 +182,57 @@ export function scoreResume(resumeText: string, jdText: string, portal: Portal =
   const keywordCoverage =
     keywords.length === 0 ? 0 : matchedKeywords.length / keywords.length;
 
-  // Weighted blend: keyword coverage matters most for real ATS.
-  const score = Math.round(
-    (0.6 * keywordCoverage + 0.4 * similarity) * 100
-  );
+  // Portal-adjusted weighting
+  const weightMap: Record<Portal, { kw: number; sim: number }> = {
+    generic: { kw: 0.6, sim: 0.4 },
+    naukri: { kw: 0.7, sim: 0.3 },
+    linkedin_india: { kw: 0.5, sim: 0.5 },
+  };
+  const w = weightMap[portal];
+  let score = Math.round((w.kw * keywordCoverage + w.sim * similarity) * 100);
+
+  // Portal-specific boost for Indian skills/certs
+  if (portal === "naukri") {
+    const resumeIndianSkills = matchPhrasesInText(resumeText, INDIAN_SKILLS);
+    const jdIndianSkills = matchPhrasesInText(jdText, INDIAN_SKILLS);
+    if (jdIndianSkills.length > 0 && resumeIndianSkills.length > 0) {
+      const indianRatio = resumeIndianSkills.length / jdIndianSkills.length;
+      score = Math.min(score + Math.round(indianRatio * 5), 100);
+    }
+  }
 
   const warnings = formatWarnings(resumeText, portal);
 
   // Sub-category scores
-  const classified = classifyKeywords(keywords);
-  const matchedClassified = classifyKeywords(matchedKeywords);
+  const classified = classifyKeywords(keywords, jdText);
+  const matchedClassified = classifyKeywords(matchedKeywords, resumeText);
 
   const hardSkills = classified.hard.length === 0
-    ? 100
+    ? null
     : Math.round((matchedClassified.hard.length / classified.hard.length) * 100);
 
   const softSkills = classified.soft.length === 0
-    ? 100
+    ? null
     : Math.round((matchedClassified.soft.length / classified.soft.length) * 100);
 
   const searchability = computeSearchability(resumeText);
-  const formatHealth = computeFormatHealth(resumeText);
+
+  // Count only structural warnings (exclude portal-specific tips)
+  const structuralWarningCount = warnings.filter(
+    (w) => !w.startsWith("For Naukri") && !w.startsWith("For LinkedIn")
+  ).length;
+  const formatHealth = computeFormatHealth(resumeText, structuralWarningCount);
+
+  // Indian cert bonus to searchability
+  let adjustedSearchability = searchability;
+  if (matchPhrasesInText(resumeText, INDIAN_CERTIFICATIONS).length > 0) {
+    adjustedSearchability = Math.min(searchability + 10, 100);
+  }
 
   const subScores: ScoreSubCategories = {
     hardSkills,
     softSkills,
-    searchability,
+    searchability: adjustedSearchability,
     formatHealth,
   };
 
@@ -200,7 +250,7 @@ export function scoreResume(resumeText: string, jdText: string, portal: Portal =
 function hasIndianEducation(resumeText: string): boolean {
   const indianDegree = /\b(B\.E|B\.Tech|M\.Tech|MCA|BCA|MBA|BBA|M\.Sc|B\.Sc|B\.Com|M\.Com|LLB|BBA|Diploma|Polytechnic|BE\s|BTech\s|MTech\s)\b/i;
   const cgpa = /\b\d\.\d{1,2}\s*\/\s*10\b/;
-  const percentage = /\b\d{1,2}\.\d{1,2}\s*%\s*(marks|aggregate|score)\b/i;
+  const percentage = /\b\d{1,3}\s*%/;
   const yearPattern = /\b(?:passed|completed|pursuing|graduated)\s+\d{4}\b/i;
   return indianDegree.test(resumeText) || cgpa.test(resumeText) || percentage.test(resumeText) || yearPattern.test(resumeText);
 }

@@ -1,6 +1,6 @@
 export interface ScoreSubCategories {
-  hardSkills: number;
-  softSkills: number;
+  hardSkills: number | null;
+  softSkills: number | null;
   searchability: number;
   formatHealth: number;
 }

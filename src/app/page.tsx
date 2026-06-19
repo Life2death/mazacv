@@ -261,13 +261,19 @@ export default function Home() {
                 <div key={s.label}>
                   <div className="flex items-baseline justify-between text-xs">
                     <span className="font-medium text-slate-600">{s.label}</span>
-                    <span className="font-semibold text-slate-800">{s.value}%</span>
+                    {s.value !== null ? (
+                      <span className="font-semibold text-slate-800">{s.value}%</span>
+                    ) : (
+                      <span className="font-medium text-slate-300">—</span>
+                    )}
                   </div>
                   <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full rounded-full ${s.color} transition-all`}
-                      style={{ width: `${s.value}%` }}
-                    />
+                    {s.value !== null ? (
+                      <div
+                        className={`h-full rounded-full ${s.color} transition-all`}
+                        style={{ width: `${s.value}%` }}
+                      />
+                    ) : null}
                   </div>
                 </div>
               ))}
