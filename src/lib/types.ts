@@ -22,6 +22,8 @@ export interface ScoreResult {
   subScores: ScoreSubCategories;
 }
 
+export type Portal = "generic" | "naukri" | "linkedin_india";
+
 export interface RewriteResult {
   /** The rewritten resume as plain text (one logical line per row) */
   resume: string;

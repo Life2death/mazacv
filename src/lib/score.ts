@@ -1,4 +1,4 @@
-import { ScoreResult, ScoreSubCategories } from "./types";
+import { ScoreResult, ScoreSubCategories, Portal } from "./types";
 
 /**
  * Deterministic, zero-cost ATS scoring.
@@ -32,6 +32,36 @@ const SOFT_SKILLS = new Set([
   "coaching", "training", "supervision", "delegation", "prioritization",
   "people management", "client relations", "vendor management", "change management",
   "risk management", "negotiation skills", "persuasion", "motivation",
+]);
+
+const INDIAN_SKILLS = new Set([
+  "core java", "spring boot", "microservices", "rest api", "hibernate",
+  "sql", "mysql", "postgresql", "oracle", "mongodb", "redis", "kafka",
+  "docker", "kubernetes", "aws", "azure", "gcp", "devops", "ci/cd",
+  "jenkins", "terraform", "ansible", "maven", "gradle", "jira",
+  "agile", "scrum", "servicenow", "salesforce", "sap", "pega",
+  "mainframe", "cobol", "react", "angular", "node.js", "python",
+  "django", "flask", "machine learning", "data science", "tableau",
+  "power bi", "etl", "informatica", "talend", "data warehouse",
+  "manual testing", "automation testing", "selenium", "jmeter",
+  "api testing", "regression testing", "uat", "production support",
+  "l2 support", "l3 support", "itil", "iics", "mulesoft", "boomi",
+  "workday", "peoplesoft", "oracle fusion", "sap abap", "sap fi",
+  "full stack", "mean stack", "mern stack",
+  "azure devops", "azure functions", "powerapps", "power automate",
+  "sharepoint", ".net", "c#", "asp.net", "mvc", "web api",
+  "entity framework", "typescript", "redux", "express.js",
+  "saas", "paas", "iaas", "crm", "erp", "bi tools", "cloud migration",
+  "digital transformation", "global delivery", "sdlc", "waterfall",
+  "manual testing", "automation testing", "api testing",
+  "production support", "change management",
+]);
+
+const INDIAN_CERTIFICATIONS = new Set([
+  "aws certified", "azure certified", "pmp", "prince2", "scrum master",
+  "csm", "psm", "itil", "istqb", "ocp", "ocjp", "scjp",
+  "ccna", "ccnp", "ceh", "cissp", "cisa",
+  "six sigma", "green belt", "black belt", "comptia",
 ]);
 
 function tokenize(text: string): string[] {
@@ -97,7 +127,7 @@ function computeSearchability(resumeText: string): number {
 
   if (/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/.test(resumeText)) score += 20;
   if (/\b(experience|work history|employment)\b/i.test(resumeText)) score += 20;
-  if (/\b(education|qualification)\b/i.test(resumeText)) score += 20;
+  if (hasIndianEducation(resumeText) || /\b(education|qualification)\b/i.test(resumeText)) score += 20;
   if (/\b(skills|technologies|competencies)\b/i.test(resumeText)) score += 20;
 
   return Math.min(score, 100);
@@ -109,12 +139,12 @@ function computeFormatHealth(resumeText: string): number {
   if (words < 200) score -= 25;
   if (!/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/.test(resumeText)) score -= 15;
   if (!/\b(experience|work history|employment)\b/i.test(resumeText)) score -= 20;
-  if (!/\b(education|qualification)\b/i.test(resumeText)) score -= 20;
+  if (!hasIndianEducation(resumeText) && !/\b(education|qualification)\b/i.test(resumeText)) score -= 20;
   if (!/\b(skills|technologies|competencies)\b/i.test(resumeText)) score -= 20;
   return Math.max(score, 0);
 }
 
-export function scoreResume(resumeText: string, jdText: string): ScoreResult {
+export function scoreResume(resumeText: string, jdText: string, portal: Portal = "generic"): ScoreResult {
   const resumeTokens = tokenize(resumeText);
   const jdTokens = tokenize(jdText);
 
@@ -132,7 +162,7 @@ export function scoreResume(resumeText: string, jdText: string): ScoreResult {
     (0.6 * keywordCoverage + 0.4 * similarity) * 100
   );
 
-  const warnings = formatWarnings(resumeText);
+  const warnings = formatWarnings(resumeText, portal);
 
   // Sub-category scores
   const classified = classifyKeywords(keywords);
@@ -167,7 +197,15 @@ export function scoreResume(resumeText: string, jdText: string): ScoreResult {
   };
 }
 
-function formatWarnings(resumeText: string): string[] {
+function hasIndianEducation(resumeText: string): boolean {
+  const indianDegree = /\b(B\.E|B\.Tech|M\.Tech|MCA|BCA|MBA|BBA|M\.Sc|B\.Sc|B\.Com|M\.Com|LLB|BBA|Diploma|Polytechnic|BE\s|BTech\s|MTech\s)\b/i;
+  const cgpa = /\b\d\.\d{1,2}\s*\/\s*10\b/;
+  const percentage = /\b\d{1,2}\.\d{1,2}\s*%\s*(marks|aggregate|score)\b/i;
+  const yearPattern = /\b(?:passed|completed|pursuing|graduated)\s+\d{4}\b/i;
+  return indianDegree.test(resumeText) || cgpa.test(resumeText) || percentage.test(resumeText) || yearPattern.test(resumeText);
+}
+
+function formatWarnings(resumeText: string, portal: Portal = "generic"): string[] {
   const warnings: string[] = [];
   const words = resumeText.split(/\s+/).filter(Boolean).length;
   if (words < 200)
@@ -178,9 +216,19 @@ function formatWarnings(resumeText: string): string[] {
     warnings.push("No email address detected — make sure contact info is plain text.");
   if (!/\b(experience|work history|employment)\b/i.test(resumeText))
     warnings.push('Add a clearly labeled "Experience" section header.');
-  if (!/\b(education|qualification)\b/i.test(resumeText))
+  if (!/\b(education|qualification)\b/i.test(resumeText) && !hasIndianEducation(resumeText))
     warnings.push('Add a clearly labeled "Education" section header.');
   if (!/\b(skills|technologies|competencies)\b/i.test(resumeText))
     warnings.push('Add a "Skills" section — ATS systems scan it heavily for keywords.');
+
+  // Portal-specific tips
+  if (portal === "naukri") {
+    warnings.push("For Naukri: keep your resume under 2 pages and use bullet points for achievements.");
+    warnings.push("Naukri ATS prefers standard section headers — avoid creative formatting.");
+  } else if (portal === "linkedin_india") {
+    warnings.push("For LinkedIn India: ensure your headline and summary match the target role keywords.");
+    warnings.push("LinkedIn's native search favours complete profiles with recommendations.");
+  }
+
   return warnings;
 }

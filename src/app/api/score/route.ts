@@ -3,6 +3,7 @@ import { extractText } from "@/lib/parse";
 import { scoreResume } from "@/lib/score";
 import { getSessionUser } from "@/lib/auth";
 import { checkAndConsume } from "@/lib/usage";
+import type { Portal } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,7 @@ export async function POST(req: Request) {
     const file = form.get("resume") as File | null;
     const jd = (form.get("jd") as string | null) ?? "";
     const pastedResume = (form.get("resumeText") as string | null) ?? "";
+    const portal = (form.get("portal") as Portal) ?? "generic";
 
     if (!jd.trim()) {
       return NextResponse.json(
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = scoreResume(resumeText, jd);
+    const result = scoreResume(resumeText, jd, portal);
     return NextResponse.json({ ...result, resumeText, remaining: gate.remaining });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Scoring failed.";

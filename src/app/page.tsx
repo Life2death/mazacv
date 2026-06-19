@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ScoreResult } from "@/lib/types";
+import type { ScoreResult, Portal } from "@/lib/types";
 
 interface ScoreResponse extends ScoreResult {
   resumeText: string;
@@ -91,6 +91,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState("");
   const [jd, setJd] = useState("");
+  const [portal, setPortal] = useState<Portal>("generic");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<ScoreResponse | null>(null);
@@ -112,6 +113,7 @@ export default function Home() {
       if (file) fd.append("resume", file);
       if (resumeText.trim()) fd.append("resumeText", resumeText);
       fd.append("jd", jd);
+      fd.append("portal", portal);
       const res = await fetch("/api/score", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Scoring failed.");
@@ -202,8 +204,20 @@ export default function Home() {
             value={jd}
             onChange={(e) => setJd(e.target.value)}
             placeholder="Paste the full job description here…"
-            className="h-56 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm focus:border-brand focus:outline-none"
+            className="h-40 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm focus:border-brand focus:outline-none"
           />
+          <label className="mt-3 block text-xs font-medium text-slate-500">
+            Target portal
+          </label>
+          <select
+            value={portal}
+            onChange={(e) => setPortal(e.target.value as Portal)}
+            className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:border-brand focus:outline-none"
+          >
+            <option value="generic">Generic — koi bhi job</option>
+            <option value="naukri">Naukri.com</option>
+            <option value="linkedin_india">LinkedIn India</option>
+          </select>
         </div>
       </section>
 
