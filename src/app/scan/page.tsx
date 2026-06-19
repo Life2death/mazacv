@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Logo } from "@/components/Logo";
+import { NavBar } from "@/components/NavBar";
+import { useAuth } from "@/components/AuthProvider";
 import type { ScoreResult, Portal, CoverLetterResult, TemplateId } from "@/lib/types";
 
 interface ScoreResponse extends ScoreResult {
@@ -57,6 +58,7 @@ function Gauge({ score }: { score: number }) {
 }
 
 export default function ScanPage() {
+  const { session } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState("");
   const [jd, setJd] = useState("");
@@ -88,6 +90,11 @@ export default function ScanPage() {
     { name: "Slate", value: "#475569" },
   ] as const;
 
+  function authHeaders(): Record<string, string> {
+    const token = session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   async function handleScore() {
     setError("");
     setResult(null);
@@ -104,7 +111,7 @@ export default function ScanPage() {
       if (resumeText.trim()) fd.append("resumeText", resumeText);
       fd.append("jd", jd);
       fd.append("portal", portal);
-      const res = await fetch("/api/score", { method: "POST", body: fd });
+      const res = await fetch("/api/score", { method: "POST", body: fd, headers: authHeaders() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Scoring failed.");
       setResult(data);
@@ -122,7 +129,7 @@ export default function ScanPage() {
     try {
       const res = await fetch("/api/rewrite", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ resumeText: result.resumeText, jd }),
       });
       const data = await res.json();
@@ -142,7 +149,7 @@ export default function ScanPage() {
     try {
       const res = await fetch("/api/cover-letter", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ resumeText: result.resumeText, jd }),
       });
       const data = await res.json();
@@ -173,7 +180,7 @@ export default function ScanPage() {
     if (!text) return;
     const res = await fetch("/api/export", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         resumeText: text,
         format,
@@ -199,13 +206,13 @@ export default function ScanPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
-      <header className="mb-8 flex flex-col items-center text-center">
-        <Logo />
-        <p className="mt-4 max-w-md text-slate-600">
+      <NavBar showLinks={false} />
+      <div className="mb-8 text-center">
+        <p className="max-w-md mx-auto text-slate-600">
           Score your resume against any job description — free. Then let AI tailor
           it and export to PDF or Word.
         </p>
-      </header>
+      </div>
 
       <section className="grid gap-6 md:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

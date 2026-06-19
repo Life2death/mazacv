@@ -1,27 +1,12 @@
+"use client";
+
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
+import { NavBar } from "@/components/NavBar";
 
 export default function LandingPage() {
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-4">
-      {/* Nav */}
-      <nav className="flex items-center justify-between py-6">
-        <Logo size="sm" showTagline={false} />
-        <div className="flex items-center gap-6 text-sm font-medium text-slate-600">
-          <Link href="#how-it-works" className="hidden transition hover:text-brand sm:block">
-            Kaise kaam karta hai
-          </Link>
-          <Link href="/pricing" className="hidden transition hover:text-brand sm:block">
-            Pricing
-          </Link>
-          <Link
-            href="/scan"
-            className="rounded-xl bg-brand px-5 py-2.5 font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
-          >
-            Score nikaal — free!
-          </Link>
-        </div>
-      </nav>
+      <NavBar />
 
       {/* Hero */}
       <section className="flex flex-col items-center pt-16 text-center sm:pt-24">
