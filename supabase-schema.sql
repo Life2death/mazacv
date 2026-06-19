@@ -30,3 +30,21 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_user();
+
+-- Scan history (Pro/Ek Baar).
+create table if not exists scans (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users (id) on delete cascade not null,
+  jd text not null,
+  resume_text text not null,
+  score integer not null,
+  sub_scores jsonb,
+  portal text not null default 'generic',
+  rewritten_text text,
+  created_at timestamptz default now()
+);
+
+alter table scans enable row level security;
+create policy "Users can only see their own scans"
+  on scans for all
+  using (auth.uid() = user_id);

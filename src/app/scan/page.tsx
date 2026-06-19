@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavBar } from "@/components/NavBar";
 import { useAuth } from "@/components/AuthProvider";
 import { UpgradeModal } from "@/components/UpgradeModal";
@@ -83,6 +83,49 @@ export default function ScanPage() {
   const [rewritesLeft, setRewritesLeft] = useState<number | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState("");
+  const [scanId, setScanId] = useState<string | null>(null);
+
+  // Load scan from history (?id=xxx)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
+    if (!id) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/scans/${id}`, {
+          headers: authHeaders(),
+        });
+        if (!res.ok) return;
+        const { scan } = await res.json();
+        if (!scan) return;
+        setJd(scan.jd);
+        setResumeText(scan.resume_text);
+        setPortal(scan.portal);
+        setScanId(scan.id);
+        // If the scan has a score, restore result state too
+        if (scan.score !== undefined) {
+          setResult({
+            score: scan.score,
+            similarity: 0,
+            keywordCoverage: 0,
+            matchedKeywords: [],
+            missingKeywords: [],
+            warnings: [],
+            subScores: scan.sub_scores ?? {
+              hardSkills: null,
+              softSkills: null,
+              searchability: 0,
+              formatHealth: 0,
+            },
+            resumeText: scan.resume_text,
+            parsedResume: { basics: { name: "", email: "" }, skills: [], work: [], education: [] },
+          });
+        }
+      } catch {
+        // Silently fail — user can still use the form
+      }
+    })();
+  }, []);
 
   const [templateId, setTemplateId] = useState<TemplateId>("classic");
   const [accentColor, setAccentColor] = useState("#4f46e5");
@@ -134,6 +177,19 @@ export default function ScanPage() {
       setResult(data);
       setParsedResume(data.parsedResume);
       if (typeof data.remaining === "number") setScoresLeft(data.remaining);
+
+      // Auto-save scan to history
+      try {
+        const scanRes = await fetch("/api/scans", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ jd, resumeText: data.resumeText, score: data.score, subScores: data.subScores, portal }),
+        });
+        if (scanRes.ok) {
+          const { scan } = await scanRes.json();
+          if (scan?.id) setScanId(scan.id);
+        }
+      } catch { /* silent */ }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Arre, kuch locha ho gaya. Phirse try kar.");
     } finally {
@@ -159,6 +215,17 @@ export default function ScanPage() {
       setRewrite(data);
       setParsedResume(data.parsedResume);
       if (typeof data.remaining === "number") setRewritesLeft(data.remaining);
+
+      // Update scan with rewritten text
+      if (scanId) {
+        try {
+          await fetch(`/api/scans/${scanId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ rewritten_text: data.resume }),
+          });
+        } catch { /* silent */ }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Rewrite failed.");
     } finally {

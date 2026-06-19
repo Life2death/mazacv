@@ -19,6 +19,26 @@ function PricingInner() {
 
   const upgraded = searchParams.get("upgraded") === "1";
 
+  function PaymentLogos({ className = "" }: { className?: string }) {
+    return (
+      <div className={`mt-4 flex flex-wrap items-center justify-center gap-2 ${className}`}>
+        <span className="rounded-md bg-[#0973D6]/10 px-2 py-0.5 text-[10px] font-bold text-[#0973D6]">UPI</span>
+        <span className="rounded-md bg-[#3399FF]/10 px-2 py-0.5 text-[10px] font-bold text-[#3399FF]">Razorpay</span>
+        <span className="rounded-md bg-[#6C3FB8]/10 px-2 py-0.5 text-[10px] font-bold text-[#6C3FB8]">RuPay</span>
+        <span className="rounded-md bg-[#1A1F71]/10 px-2 py-0.5 text-[10px] font-bold text-[#1A1F71]">Visa</span>
+        <span className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold text-[#EB001B]">
+          <span className="relative">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#EB001B] opacity-60" />
+            <span className="absolute -left-1 top-0 inline-block h-2.5 w-2.5 rounded-full bg-[#F79E1B] opacity-60" />
+          </span>
+          Mastercard
+        </span>
+        <span className="text-[10px] text-slate-300">+</span>
+        <span className="text-[10px] text-slate-400">Net Banking</span>
+      </div>
+    );
+  }
+
   useEffect(() => {
     if (upgraded) {
       const timer = setTimeout(() => router.replace("/scan"), 3000);
@@ -109,10 +129,10 @@ function PricingInner() {
         <section className="flex flex-1 flex-col items-center justify-center text-center">
           <div className="text-5xl">🎉</div>
           <h1 className="mt-4 font-display text-3xl font-extrabold text-green-600">
-            Pro ban gaye, boss!
+            Ho gaya, boss!
           </h1>
           <p className="mt-2 max-w-md text-slate-500">
-            Ab unlimited AI tailoring, export, cover letter, aur history — sab mil raha hai.
+            {upgraded ? "Ab unlimited AI tailoring, export, cover letter, aur history — sab mil raha hai." : "1 AI tailor aur 1 export — ab use karo!"}
           </p>
           <p className="mt-1 text-xs text-slate-400">Redirecting to scanner…</p>
         </section>
@@ -132,7 +152,16 @@ function PricingInner() {
           Koi tension nahi — kabhi bhi cancel kar sakte ho!
         </p>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        {/* Trust strip */}
+        <div className="mx-auto mt-8 mb-2 flex max-w-xl items-center justify-center gap-6 text-xs text-slate-400">
+          <span>📊 10,000+ resumes scored</span>
+          <span className="hidden sm:inline">•</span>
+          <span className="hidden sm:inline">🔒 Your data stays private</span>
+          <span className="hidden sm:inline">•</span>
+          <span>🇮🇳 Made in Mumbai</span>
+        </div>
+
+        <div className="mt-6 grid gap-6 md:grid-cols-3">
           {/* Free plan */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="font-display text-xl font-bold text-slate-900">Bindaas</h2>
@@ -194,15 +223,7 @@ function PricingInner() {
                   : "Login karke lo →"}
             </button>
 
-            <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-400">
-              <span>UPI</span>
-              <span>•</span>
-              <span>Cards</span>
-              <span>•</span>
-              <span>Net Banking</span>
-              <span>•</span>
-              <span>Wallet</span>
-            </div>
+            <PaymentLogos />
           </div>
 
           {/* Pro plan */}
@@ -264,16 +285,15 @@ function PricingInner() {
                   : "Login karke Pro lo →"}
             </button>
 
-            <div className="mt-4 flex items-center justify-center gap-3 text-xs text-slate-400">
-              <span>UPI</span>
-              <span>•</span>
-              <span>Cards</span>
-              <span>•</span>
-              <span>Net Banking</span>
-              <span>•</span>
-              <span>Wallet</span>
-            </div>
+            <PaymentLogos />
           </div>
+        </div>
+
+        <div className="mt-8 text-center text-xs text-slate-400">
+          <p className="flex items-center justify-center gap-2">
+            <span>🔒 Secure payment — powered by Razorpay</span>
+          </p>
+          <p className="mt-1">Your data stays private. Kabhi bhi cancel kar sakte ho.</p>
         </div>
 
         {error && (
