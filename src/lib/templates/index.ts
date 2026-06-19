@@ -8,6 +8,9 @@ export const TEMPLATES: TemplateInfo[] = [
   { id: "minimal", name: "Minimal", tier: "ats-safe", description: "Ultra-compact, small footprint" },
   { id: "professional", name: "Professional", tier: "ats-safe", description: "Structured header, numbered sections" },
   { id: "split", name: "Split", tier: "designer", description: "Two-column with sidebar (may not be fully ATS-safe)" },
+  { id: "fresher", name: "Fresher", tier: "ats-safe", description: "Education-first, projects + internships focus" },
+  { id: "technical", name: "Technical", tier: "ats-safe", description: "Skills-first with tech-stack badges" },
+  { id: "career-switcher", name: "Career Switcher", tier: "ats-safe", description: "Transferable skills, functional format" },
 ];
 
 export const ACCENT_COLORS = [
@@ -25,6 +28,9 @@ import { CompactTemplate as CompactTpl } from "./CompactTemplate";
 import { MinimalTemplate as MinimalTpl } from "./MinimalTemplate";
 import { ProfessionalTemplate as ProfessionalTpl } from "./ProfessionalTemplate";
 import { SplitTemplate as SplitTpl } from "./SplitTemplate";
+import { FresherTemplate as FresherTpl } from "./FresherTemplate";
+import { TechnicalTemplate as TechnicalTpl } from "./TechnicalTemplate";
+import { CareerSwitcherTemplate as CareerSwitcherTpl } from "./CareerSwitcherTemplate";
 
 export const ClassicTemplate = ClassicTpl;
 export const ModernTemplate = ModernTpl;
@@ -32,6 +38,9 @@ export const CompactTemplate = CompactTpl;
 export const MinimalTemplate = MinimalTpl;
 export const ProfessionalTemplate = ProfessionalTpl;
 export const SplitTemplate = SplitTpl;
+export const FresherTemplate = FresherTpl;
+export const TechnicalTemplate = TechnicalTpl;
+export const CareerSwitcherTemplate = CareerSwitcherTpl;
 
 export function getTemplateComponent(id: TemplateId) {
   const map: Record<TemplateId, ComponentType<any>> = {
@@ -41,6 +50,9 @@ export function getTemplateComponent(id: TemplateId) {
     minimal: MinimalTpl,
     professional: ProfessionalTpl,
     split: SplitTpl,
+    fresher: FresherTpl,
+    technical: TechnicalTpl,
+    "career-switcher": CareerSwitcherTpl,
   };
   return map[id];
 }

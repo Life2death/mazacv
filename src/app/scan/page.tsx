@@ -117,6 +117,7 @@ export default function ScanPage() {
               searchability: 0,
               formatHealth: 0,
             },
+            impact: { impactScore: 0, metricsFound: 0, strongVerbs: [], weakPhrases: [], cliches: [] },
             resumeText: scan.resume_text,
             parsedResume: { basics: { name: "", email: "" }, skills: [], work: [], education: [] },
           });
@@ -136,6 +137,9 @@ export default function ScanPage() {
     { id: "minimal" as TemplateId, name: "Minimal", tier: "ATS-Safe", desc: "Ultra-compact, small font" },
     { id: "professional" as TemplateId, name: "Professional", tier: "ATS-Safe", desc: "Numbered sections, labels" },
     { id: "split" as TemplateId, name: "Split", tier: "Designer", desc: "Two-column with sidebar" },
+    { id: "fresher" as TemplateId, name: "Fresher", tier: "ATS-Safe", desc: "Education-first, projects focus" },
+    { id: "technical" as TemplateId, name: "Technical", tier: "ATS-Safe", desc: "Skills-first, tech badges" },
+    { id: "career-switcher" as TemplateId, name: "Career Switcher", tier: "ATS-Safe", desc: "Transferable skills format" },
   ] as const;
   const ACCENT_COLORS = [
     { name: "Indigo", value: "#4f46e5" },
@@ -183,7 +187,7 @@ export default function ScanPage() {
         const scanRes = await fetch("/api/scans", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({ jd, resumeText: data.resumeText, score: data.score, subScores: data.subScores, portal }),
+          body: JSON.stringify({ jd, resumeText: data.resumeText, score: data.score, subScores: data.subScores, impact: data.impact, portal }),
         });
         if (scanRes.ok) {
           const { scan } = await scanRes.json();
@@ -396,7 +400,16 @@ export default function ScanPage() {
               {r.title}
             </div>
             <div className="mt-0.5 text-sm text-slate-500">{r.sub}</div>
-            <Gauge score={result.score} />
+            <div className="mx-auto mt-4 flex max-w-md items-center justify-center gap-8">
+              <div className="text-center">
+                <div className="text-xs font-semibold text-slate-500">ATS Score</div>
+                <Gauge score={result.score} />
+              </div>
+              <div className="text-center">
+                <div className="text-xs font-semibold text-slate-500">Impact Score</div>
+                <Gauge score={result.impact.impactScore} />
+              </div>
+            </div>
 
             <div className="mx-auto mt-5 grid max-w-sm grid-cols-2 gap-3 text-left">
               {[
@@ -424,6 +437,31 @@ export default function ScanPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Impact score breakdown */}
+            <div className="mx-auto mt-5 max-w-sm rounded-xl bg-blue-50 p-3 text-left text-xs">
+              <div className="mb-1.5 text-xs font-semibold text-blue-800">Impact Breakdown</div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-blue-700">
+                <span>📊 {result.impact.metricsFound} metrics</span>
+                <span>💪 {result.impact.strongVerbs.length} strong verbs</span>
+              </div>
+              {result.impact.weakPhrases.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1 text-amber-700">
+                  <span className="font-medium">⚠️ Weak:</span>
+                  {result.impact.weakPhrases.map((w, i) => (
+                    <span key={i} className="rounded bg-amber-100 px-1.5">"{w}"</span>
+                  ))}
+                </div>
+              )}
+              {result.impact.cliches.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1 text-red-600">
+                  <span className="font-medium">🚫 Clichés:</span>
+                  {result.impact.cliches.map((c, i) => (
+                    <span key={i} className="rounded bg-red-100 px-1.5">"{c}"</span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

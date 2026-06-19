@@ -1,4 +1,5 @@
 import { ScoreResult, ScoreSubCategories, Portal } from "./types";
+import { scoreImpact } from "./impact";
 
 /**
  * Deterministic, zero-cost ATS scoring.
@@ -236,6 +237,8 @@ export function scoreResume(resumeText: string, jdText: string, portal: Portal =
     formatHealth,
   };
 
+  const impact = scoreImpact(resumeText);
+
   return {
     score,
     similarity: Math.round(similarity * 100),
@@ -244,6 +247,7 @@ export function scoreResume(resumeText: string, jdText: string, portal: Portal =
     missingKeywords,
     warnings,
     subScores,
+    impact,
   };
 }
 

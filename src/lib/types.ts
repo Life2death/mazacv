@@ -5,6 +5,14 @@ export interface ScoreSubCategories {
   formatHealth: number;
 }
 
+export interface ImpactResult {
+  impactScore: number;
+  metricsFound: number;
+  strongVerbs: string[];
+  weakPhrases: string[];
+  cliches: string[];
+}
+
 export interface ScoreResult {
   /** Overall ATS match score, 0-100 */
   score: number;
@@ -20,6 +28,8 @@ export interface ScoreResult {
   warnings: string[];
   /** Sub-category scores for deeper analysis */
   subScores: ScoreSubCategories;
+  /** Human-reader impact score 0-100 */
+  impact: ImpactResult;
 }
 
 export type Portal = "generic" | "naukri" | "linkedin_india";
@@ -78,7 +88,7 @@ export type Credits = {
   "cover-letter"?: number;
 };
 
-export type TemplateId = "classic" | "modern" | "compact" | "split" | "minimal" | "professional";
+export type TemplateId = "classic" | "modern" | "compact" | "split" | "minimal" | "professional" | "fresher" | "technical" | "career-switcher";
 
 export interface TemplateInfo {
   id: TemplateId;

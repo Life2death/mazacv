@@ -39,6 +39,7 @@ create table if not exists scans (
   resume_text text not null,
   score integer not null,
   sub_scores jsonb,
+  impact jsonb,
   portal text not null default 'generic',
   rewritten_text text,
   created_at timestamptz default now()
@@ -62,3 +63,23 @@ create policy "Service role only"
   on processed_payments for all
   using (true)
   with check (true);
+
+-- Job tracker — applications Kanban.
+create table if not exists applications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users (id) on delete cascade not null,
+  company text not null,
+  role text not null,
+  jd text,
+  score integer,
+  stage text not null default 'saved'
+    check (stage in ('saved','applied','interview','offer','rejected')),
+  scan_id uuid references scans (id) on delete set null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table applications enable row level security;
+create policy "Users can only see their own applications"
+  on applications for all
+  using (auth.uid() = user_id);

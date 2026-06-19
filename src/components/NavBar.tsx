@@ -39,7 +39,13 @@ export function NavBar({ showLinks = true }: NavBarProps) {
               href="/dashboard"
               className="hidden rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:text-brand sm:block"
             >
-              Dashboard
+              History
+            </Link>
+            <Link
+              href="/tracker"
+              className="hidden rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:text-brand sm:block"
+            >
+              Tracker
             </Link>
             <span className="hidden text-xs text-slate-400 sm:block">
               {user.email}

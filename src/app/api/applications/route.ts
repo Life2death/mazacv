@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     }
 
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ scans: [] });
+      return NextResponse.json({ applications: [] });
     }
 
     const { createClient } = await import("@supabase/supabase-js");
@@ -21,14 +21,14 @@ export async function GET(req: Request) {
     );
 
     const { data } = await sb
-      .from("scans")
+      .from("applications")
       .select("*")
       .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .order("updated_at", { ascending: false });
 
-    return NextResponse.json({ scans: data ?? [] });
+    return NextResponse.json({ applications: data ?? [] });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to fetch scans.";
+    const message = err instanceof Error ? err.message : "Failed to fetch applications.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -41,21 +41,21 @@ export async function POST(req: Request) {
     }
 
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ scan: null });
+      return NextResponse.json({ error: "Not configured." }, { status: 501 });
     }
 
     const body = (await req.json()) as {
-      jd: string;
-      resumeText: string;
-      score: number;
-      subScores?: Record<string, number | null>;
-      impact?: Record<string, unknown>;
-      portal?: string;
+      company: string;
+      role: string;
+      jd?: string;
+      score?: number;
+      stage?: string;
+      scan_id?: string;
     };
 
-    if (!body.jd || !body.resumeText || body.score === undefined) {
+    if (!body.company?.trim() || !body.role?.trim()) {
       return NextResponse.json(
-        { error: "jd, resumeText, and score are required." },
+        { error: "Company and role are required." },
         { status: 400 }
       );
     }
@@ -67,23 +67,23 @@ export async function POST(req: Request) {
     );
 
     const { data, error } = await sb
-      .from("scans")
+      .from("applications")
       .insert({
         user_id: userId,
-        jd: body.jd,
-        resume_text: body.resumeText,
-        score: body.score,
-        sub_scores: body.subScores ?? null,
-        impact: body.impact ?? null,
-        portal: body.portal ?? "generic",
+        company: body.company.trim(),
+        role: body.role.trim(),
+        jd: body.jd ?? null,
+        score: body.score ?? null,
+        stage: body.stage ?? "saved",
+        scan_id: body.scan_id ?? null,
       })
       .select()
       .single();
 
     if (error) throw error;
-    return NextResponse.json({ scan: data });
+    return NextResponse.json({ application: data });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to save scan.";
+    const message = err instanceof Error ? err.message : "Failed to create application.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
