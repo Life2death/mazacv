@@ -1,4 +1,4 @@
-import { ScoreResult } from "./types";
+import { ScoreResult, ScoreSubCategories } from "./types";
 
 /**
  * Deterministic, zero-cost ATS scoring.
@@ -16,6 +16,23 @@ const STOPWORDS = new Set(
     /\s+/
   )
 );
+
+const SOFT_SKILLS = new Set([
+  "communication", "leadership", "teamwork", "collaboration", "problem-solving",
+  "analytical", "critical thinking", "time management", "adaptability", "flexibility",
+  "interpersonal", "negotiation", "presentation", "mentoring", "project management",
+  "conflict resolution", "decision-making", "organizational", "detail-oriented",
+  "multitasking", "creative", "innovation", "strategic", "planning", "customer service",
+  "stakeholder management", "cross-functional", "self-motivated", "proactive",
+  "team player", "interpersonal skills", "verbal communication", "written communication",
+  "public speaking", "active listening", "empathy", "emotional intelligence",
+  "accountability", "dependability", "reliability", "initiative", "resourceful",
+  "problem solver", "critical thinker", "fast learner", "self-starter",
+  "results-oriented", "goal-oriented", "detail oriented", "big picture",
+  "coaching", "training", "supervision", "delegation", "prioritization",
+  "people management", "client relations", "vendor management", "change management",
+  "risk management", "negotiation skills", "persuasion", "motivation",
+]);
 
 function tokenize(text: string): string[] {
   return text
@@ -57,6 +74,46 @@ function importantKeywords(jdText: string, limit = 30): string[] {
     .map(([k]) => k);
 }
 
+function classifyKeywords(
+  keywords: string[]
+): { hard: string[]; soft: string[] } {
+  const hard: string[] = [];
+  const soft: string[] = [];
+  for (const k of keywords) {
+    if (SOFT_SKILLS.has(k)) {
+      soft.push(k);
+    } else {
+      hard.push(k);
+    }
+  }
+  return { hard, soft };
+}
+
+function computeSearchability(resumeText: string): number {
+  let score = 0;
+  const words = resumeText.split(/\s+/).filter(Boolean).length;
+  if (words >= 200) score += 20;
+  else if (words >= 100) score += 10;
+
+  if (/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/.test(resumeText)) score += 20;
+  if (/\b(experience|work history|employment)\b/i.test(resumeText)) score += 20;
+  if (/\b(education|qualification)\b/i.test(resumeText)) score += 20;
+  if (/\b(skills|technologies|competencies)\b/i.test(resumeText)) score += 20;
+
+  return Math.min(score, 100);
+}
+
+function computeFormatHealth(resumeText: string): number {
+  let score = 100;
+  const words = resumeText.split(/\s+/).filter(Boolean).length;
+  if (words < 200) score -= 25;
+  if (!/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/.test(resumeText)) score -= 15;
+  if (!/\b(experience|work history|employment)\b/i.test(resumeText)) score -= 20;
+  if (!/\b(education|qualification)\b/i.test(resumeText)) score -= 20;
+  if (!/\b(skills|technologies|competencies)\b/i.test(resumeText)) score -= 20;
+  return Math.max(score, 0);
+}
+
 export function scoreResume(resumeText: string, jdText: string): ScoreResult {
   const resumeTokens = tokenize(resumeText);
   const jdTokens = tokenize(jdText);
@@ -77,6 +134,28 @@ export function scoreResume(resumeText: string, jdText: string): ScoreResult {
 
   const warnings = formatWarnings(resumeText);
 
+  // Sub-category scores
+  const classified = classifyKeywords(keywords);
+  const matchedClassified = classifyKeywords(matchedKeywords);
+
+  const hardSkills = classified.hard.length === 0
+    ? 100
+    : Math.round((matchedClassified.hard.length / classified.hard.length) * 100);
+
+  const softSkills = classified.soft.length === 0
+    ? 100
+    : Math.round((matchedClassified.soft.length / classified.soft.length) * 100);
+
+  const searchability = computeSearchability(resumeText);
+  const formatHealth = computeFormatHealth(resumeText);
+
+  const subScores: ScoreSubCategories = {
+    hardSkills,
+    softSkills,
+    searchability,
+    formatHealth,
+  };
+
   return {
     score,
     similarity: Math.round(similarity * 100),
@@ -84,6 +163,7 @@ export function scoreResume(resumeText: string, jdText: string): ScoreResult {
     matchedKeywords,
     missingKeywords,
     warnings,
+    subScores,
   };
 }
 

@@ -1,3 +1,10 @@
+export interface ScoreSubCategories {
+  hardSkills: number;
+  softSkills: number;
+  searchability: number;
+  formatHealth: number;
+}
+
 export interface ScoreResult {
   /** Overall ATS match score, 0-100 */
   score: number;
@@ -11,6 +18,8 @@ export interface ScoreResult {
   missingKeywords: string[];
   /** Format/ATS-friendliness warnings */
   warnings: string[];
+  /** Sub-category scores for deeper analysis */
+  subScores: ScoreSubCategories;
 }
 
 export interface RewriteResult {

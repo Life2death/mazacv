@@ -235,9 +235,28 @@ export default function Home() {
             </div>
             <div className="mt-0.5 text-sm text-slate-500">{r.sub}</div>
             <Gauge score={result.score} />
-            <div className="mt-3 text-xs text-slate-400">
-              Keyword coverage {result.keywordCoverage}% · Content similarity{" "}
-              {result.similarity}%
+
+            {/* Sub-scores grid */}
+            <div className="mx-auto mt-5 grid max-w-sm grid-cols-2 gap-3 text-left">
+              {[
+                { label: "Hard Skills", value: result.subScores.hardSkills, color: "bg-indigo-500" },
+                { label: "Soft Skills", value: result.subScores.softSkills, color: "bg-amber-500" },
+                { label: "Searchability", value: result.subScores.searchability, color: "bg-green-500" },
+                { label: "Format Health", value: result.subScores.formatHealth, color: "bg-slate-500" },
+              ].map((s) => (
+                <div key={s.label}>
+                  <div className="flex items-baseline justify-between text-xs">
+                    <span className="font-medium text-slate-600">{s.label}</span>
+                    <span className="font-semibold text-slate-800">{s.value}%</span>
+                  </div>
+                  <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={`h-full rounded-full ${s.color} transition-all`}
+                      style={{ width: `${s.value}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
