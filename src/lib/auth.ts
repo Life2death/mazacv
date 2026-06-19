@@ -22,8 +22,6 @@ export async function getSessionUser(req: Request): Promise<SessionUser> {
     return { userId: null, plan: "free" };
   }
 
-  // TODO (Phase 3): verify the Supabase JWT from the Authorization header /
-  // cookie, then fetch the plan from `profiles`.
   const authHeader = req.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return { userId: null, plan: "free" };
