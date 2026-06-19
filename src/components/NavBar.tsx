@@ -61,12 +61,14 @@ export function NavBar({ showLinks = true }: NavBarProps) {
 
         {/* Desktop right side */}
         <div className="hidden items-center gap-3 sm:flex">
-          <Link
-            href="/scan"
-            className="rounded-xl bg-brand px-5 py-2.5 font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
-          >
-            Score nikaal{loading ? "" : user ? "" : " — free!"}
-          </Link>
+          {showLinks && (
+            <Link
+              href="/scan"
+              className="rounded-xl bg-brand px-5 py-2.5 font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
+            >
+              Score nikaal{loading ? "" : user ? "" : " — free!"}
+            </Link>
+          )}
 
           {loading ? null : user ? (
             <div className="relative" ref={menuRef}>
@@ -149,13 +151,15 @@ export function NavBar({ showLinks = true }: NavBarProps) {
                 {l.label}
               </Link>
             ))}
-            <Link
-              href="/scan"
-              onClick={() => setMobileOpen(false)}
-              className="block rounded-xl bg-brand px-3 py-2.5 text-center font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
-            >
-              Score nikaal
-            </Link>
+            {showLinks && (
+              <Link
+                href="/scan"
+                onClick={() => setMobileOpen(false)}
+                className="block rounded-xl bg-brand px-3 py-2.5 text-center font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
+              >
+                Score nikaal
+              </Link>
+            )}
             {loading ? null : user ? (
               <>
                 <div className="border-t border-slate-100 pt-2">

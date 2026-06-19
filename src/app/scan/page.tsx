@@ -86,6 +86,8 @@ export default function ScanPage() {
   const [scanId, setScanId] = useState<string | null>(null);
   const [shareSlug, setShareSlug] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [linkedinUrl, setLinkedinUrl] = useState<string | null>(null);
+  const [linkedinOptimized, setLinkedinOptimized] = useState(false);
 
   // Load scan from history (?id=xxx)
   useEffect(() => {
@@ -184,6 +186,11 @@ export default function ScanPage() {
       setParsedResume(data.parsedResume);
       if (typeof data.remaining === "number") setScoresLeft(data.remaining);
 
+      // LinkedIn detection
+      const match = data.resumeText.match(/linkedin\.com\/in\/[\w-]+/);
+      setLinkedinUrl(match ? match[0] : null);
+      setLinkedinOptimized(false); // reset until we confirm
+
       // Auto-save scan to history
       try {
         const scanRes = await fetch("/api/scans", {
@@ -193,7 +200,12 @@ export default function ScanPage() {
         });
         if (scanRes.ok) {
           const { scan } = await scanRes.json();
-          if (scan?.id) setScanId(scan.id);
+          if (scan?.id) {
+          setScanId(scan.id);
+          // Check localStorage for linkedin optimization flag
+          const opt = localStorage.getItem(`li_opt_${scan.id}`);
+          if (opt === "true") setLinkedinOptimized(true);
+        }
         }
       } catch { /* silent */ }
     } catch (e) {
@@ -505,6 +517,47 @@ export default function ScanPage() {
               )}
             </div>
           </div>
+
+          {/* LinkedIn banner */}
+          {linkedinUrl && (
+            <div className={`mt-6 rounded-xl border p-4 text-left text-sm ${
+              linkedinOptimized
+                ? "border-green-200 bg-green-50"
+                : "border-blue-200 bg-blue-50"
+            }`}>
+              {linkedinOptimized ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-green-600 font-bold">✅</span>
+                  <span className="font-medium text-green-800">LinkedIn optimized ho chuka hai! 🎉</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <span className="font-medium text-blue-800">LinkedIn profile dikha — </span>
+                    <span className="text-blue-700">is role ke liye optimize karwa le?</span>
+                  </div>
+                  <a
+                    href={`/linkedin?jd=${encodeURIComponent(jd)}`}
+                    onClick={() => {
+                      if (scanId) localStorage.setItem(`li_opt_${scanId}`, "true");
+                      setLinkedinOptimized(true);
+                    }}
+                    className="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700"
+                  >
+                    Haan, optimize karo 🚀
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+          {!linkedinUrl && result && (
+            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left text-sm text-slate-600">
+              <span className="font-medium">💡 No LinkedIn URL in your resume</span>
+              <span className="block mt-0.5 text-xs text-slate-400">
+                Recruiters ko LinkedIn pasand hai — apna profile link daalo resume mein!
+              </span>
+            </div>
+          )}
 
           <div className="mb-2 mt-6 text-sm font-semibold text-slate-900">
             Yeh already mast hai ✅
