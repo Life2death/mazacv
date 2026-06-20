@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { extractText, validateFile } from "@/lib/parse";
+import { extractText, validateFile, validateContent } from "@/lib/parse";
 import { scoreResume } from "@/lib/score";
 import { heuristicParseResume } from "@/lib/resume-parser";
 import { getSessionUser } from "@/lib/auth";
@@ -10,8 +10,11 @@ import type { Portal } from "@/lib/types";
 export const runtime = "nodejs";
 
 function getIp(req: Request): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+  // Prefer the platform's trusted client-IP header; raw x-forwarded-for is
+  // attacker-controlled and only safe as a last-resort fallback.
+  return req.headers.get("cf-connecting-ip")
     || req.headers.get("x-real-ip")
+    || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     || "127.0.0.1";
 }
 
@@ -47,6 +50,8 @@ export async function POST(req: Request) {
       const invalid = validateFile(file);
       if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
       const buffer = Buffer.from(await file.arrayBuffer());
+      const badContent = validateContent(buffer, file.name);
+      if (badContent) return NextResponse.json({ error: badContent }, { status: 400 });
       resumeText = await extractText(buffer, file.name);
     }
 

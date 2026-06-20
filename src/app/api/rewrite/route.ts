@@ -10,8 +10,11 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 function getIp(req: Request): string {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+  // Prefer the platform's trusted client-IP header; raw x-forwarded-for is
+  // attacker-controlled and only safe as a last-resort fallback.
+  return req.headers.get("cf-connecting-ip")
     || req.headers.get("x-real-ip")
+    || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     || "127.0.0.1";
 }
 

@@ -21,6 +21,33 @@ export function validateFile(file: { size: number; type: string; name: string })
 }
 
 /**
+ * Verify the file's actual content matches its claimed type via magic bytes.
+ * Extension and client-sent MIME are both trivially spoofable, so this is the
+ * real gate before we hand bytes to pdf-parse / mammoth. Call with the buffer.
+ */
+export function validateContent(buffer: Buffer, filename: string): string | null {
+  const ext = filename.split(".").pop()?.toLowerCase();
+
+  if (ext === "pdf") {
+    // PDF must start with "%PDF-"
+    if (buffer.subarray(0, 5).toString("latin1") !== "%PDF-") {
+      return "Yeh valid PDF nahi lag raha — file corrupt ya galat hai.";
+    }
+  } else if (ext === "docx") {
+    // DOCX is a ZIP container: "PK\x03\x04"
+    if (buffer.subarray(0, 4).toString("latin1") !== "PK\x03\x04") {
+      return "Yeh valid DOCX nahi lag raha — file corrupt ya galat hai.";
+    }
+  } else if (ext === "txt") {
+    // Reject content with NUL bytes (binary masquerading as text)
+    if (buffer.subarray(0, 8192).includes(0x00)) {
+      return "TXT file me binary data hai — plain text daal.";
+    }
+  }
+  return null;
+}
+
+/**
  * Extract plain text from an uploaded resume file (PDF or DOCX).
  * Runs server-side only (Node runtime) because pdf-parse/mammoth need Buffers.
  */
