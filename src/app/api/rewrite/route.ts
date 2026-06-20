@@ -3,7 +3,7 @@ import { rewriteResume } from "@/lib/rewrite";
 import { scoreResume } from "@/lib/score";
 import { heuristicParseResume } from "@/lib/resume-parser";
 import { getSessionUser } from "@/lib/auth";
-import { checkAndConsume } from "@/lib/usage";
+import { checkAndConsume, refundUsage } from "@/lib/usage";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   try {
     const { userId, plan, credits } = await getSessionUser(req);
 
-    const rl = checkRateLimit(getIp(req), userId);
+    const rl = await checkRateLimit(getIp(req), userId);
     if (!rl.allowed) {
       return NextResponse.json({ error: "Bahut ho gaya, thoda ruk!" }, { status: 429 });
     }
@@ -44,7 +44,14 @@ export async function POST(req: Request) {
     }
 
     const before = scoreResume(resumeText, jd);
-    const rewritten = await rewriteResume(resumeText, jd, before.missingKeywords, plan);
+    let rewritten;
+    try {
+      rewritten = await rewriteResume(resumeText, jd, before.missingKeywords, plan);
+    } catch (aiErr) {
+      // The billable unit was already consumed at the gate; give it back.
+      await refundUsage(userId, "rewrite");
+      throw aiErr;
+    }
     const after = scoreResume(rewritten.resume, jd);
 
     const parsedResume = heuristicParseResume(rewritten.resume);

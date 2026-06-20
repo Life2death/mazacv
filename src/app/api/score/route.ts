@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   try {
     const { userId, plan, credits } = await getSessionUser(req);
 
-    const rl = checkRateLimit(getIp(req), userId);
+    const rl = await checkRateLimit(getIp(req), userId);
     if (!rl.allowed) {
       return NextResponse.json({ error: "Bahut ho gaya, thoda ruk! Limit hit kar diya." }, { status: 429 });
     }

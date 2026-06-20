@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Please log in first." }, { status: 401 });
     }
 
-    const rl = checkRateLimit(getIp(req), userId);
+    const rl = await checkRateLimit(getIp(req), userId);
     if (!rl.allowed) {
       return NextResponse.json({ error: "Bahut ho gaya, thoda ruk!" }, { status: 429 });
     }

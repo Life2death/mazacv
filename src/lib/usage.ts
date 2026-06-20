@@ -30,8 +30,6 @@ interface CheckResult {
 
 const supabaseConfigured =
   !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseAnonConfigured =
-  !!process.env.SUPABASE_URL && !!process.env.SUPABASE_ANON_KEY;
 
 export async function checkAndConsume(
   userId: string | null,
@@ -75,24 +73,11 @@ export async function checkAndConsume(
 }
 
 async function consumeCredit(userId: string | null, action: Action): Promise<void> {
-  if (!supabaseAnonConfigured || !userId) return;
-  const { createClient } = await import("@supabase/supabase-js");
-  const client = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-  const { data: profile } = await client
-    .from("profiles")
-    .select("credits")
-    .eq("id", userId)
-    .maybeSingle();
-  const k = action as keyof Credits;
-  const current: Credits = (profile?.credits as Credits) ?? {};
-  const val = (current[k] ?? 0) - 1;
-  await client.from("profiles").upsert({
-    id: userId,
-    credits: { ...current, [k]: val <= 0 ? 0 : val },
-  });
+  if (!supabaseConfigured || !userId) return;
+  const client = await sb();
+  // Atomic decrement (clamped at 0) — avoids the read-modify-write race that
+  // let two concurrent requests double-spend a single credit.
+  await client.rpc("consume_credit", { p_user_id: userId, p_action: action });
 }
 
 // --- Supabase-backed counters (only called when configured) -----------------
@@ -129,12 +114,25 @@ async function getUsage(userId: string, action: Action): Promise<number> {
 async function incrementUsage(userId: string, action: Action): Promise<void> {
   const client = await sb();
   const period = periodKey(action);
-  // Upsert + increment via RPC would be cleaner; simple read-modify-write here.
+  // Atomic INSERT .. ON CONFLICT DO UPDATE via RPC — no read-modify-write race.
+  await client.rpc("increment_usage", {
+    p_user_id: userId,
+    p_action: action,
+    p_period: period,
+  });
+}
+
+/** Roll back a consumed usage unit when the billable work fails after gating. */
+export async function refundUsage(userId: string | null, action: Action): Promise<void> {
+  if (!supabaseConfigured || !userId) return;
+  const client = await sb();
+  const period = periodKey(action);
   const current = await getUsage(userId, action);
+  if (current <= 0) return;
   await client
     .from("usage")
     .upsert(
-      { user_id: userId, action, period, count: current + 1 },
+      { user_id: userId, action, period, count: current - 1 },
       { onConflict: "user_id,action,period" }
     );
 }
