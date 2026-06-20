@@ -20,14 +20,23 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const tables = ["applications", "scans", "usage", "resume_pages", "processed_payments", "profiles"];
+    // Tables keyed by user_id.
+    const tables = ["applications", "scans", "usage", "resume_pages", "processed_payments"];
     for (const table of tables) {
       await sb.from(table).delete().eq("user_id", userId);
     }
 
+    // profiles is keyed by `id` (FK -> auth.users.id), NOT user_id.
+    await sb.from("profiles").delete().eq("id", userId);
+
+    // Deleting the auth user cascades to any remaining rows; treat failure as fatal
+    // so the caller knows the account was not fully removed.
     const { error: adminError } = await sb.auth.admin.deleteUser(userId);
     if (adminError) {
-      console.warn("[Delete Account] Failed to delete auth user:", adminError.message);
+      return NextResponse.json(
+        { error: "Account data cleared but auth user deletion failed. Please retry." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ deleted: true });
