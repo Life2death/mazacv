@@ -92,6 +92,9 @@ export default function ScanPage() {
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [mode, setMode] = useState<"choose" | "ats" | "jobs">("choose");
+  const [editableSkills, setEditableSkills] = useState("");
+  const [skillsLoading, setSkillsLoading] = useState(false);
+  const [skillsExtracted, setSkillsExtracted] = useState(false);
 
   // Load scan from history (?id=xxx)
   useEffect(() => {
@@ -136,6 +139,35 @@ export default function ScanPage() {
       }
     })();
   }, []);
+
+  // Auto-extract skills when resume file or text changes in jobs mode
+  useEffect(() => {
+    if (mode !== "jobs") return;
+    if (!file && !resumeText.trim()) return;
+    setSkillsLoading(true);
+    setSkillsExtracted(false);
+    setEditableSkills("");
+    const timer = setTimeout(async () => {
+      try {
+        const fd = new FormData();
+        if (file) fd.append("resume", file);
+        if (resumeText.trim()) fd.append("resumeText", resumeText);
+        const res = await fetch("/api/extract-skills", { method: "POST", body: fd, headers: authHeaders() });
+        const { skills } = await res.json();
+        if (skills && skills.length > 0) {
+          setEditableSkills(skills.join(", "));
+          setSkillsExtracted(true);
+        } else {
+          setSkillsExtracted(false);
+        }
+      } catch {
+        setSkillsExtracted(false);
+      } finally {
+        setSkillsLoading(false);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [file, resumeText, mode]);
 
   const [templateId, setTemplateId] = useState<TemplateId>("classic");
   const [accentColor, setAccentColor] = useState("#4f46e5");
@@ -348,19 +380,18 @@ export default function ScanPage() {
   async function handleJobsSearch() {
     setError("");
     setJobs([]);
-    if (!file && !resumeText.trim())
-      return setError("Apna resume daal — upload a file or paste text.");
+    const skillsStr = editableSkills.trim();
+    if (!skillsStr) {
+      if (!file && !resumeText.trim())
+        return setError("Apna resume daal — upload a file or paste text.");
+      return setError("Pehle resume se skills nikaal lo, phir search karo.");
+    }
+    const skills = skillsStr.split(/[,;]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+    if (skills.length === 0) {
+      return setError("Kam se kam ek skill daal — 'React', 'Python' waise.");
+    }
     setJobsLoading(true);
     try {
-      const fd = new FormData();
-      if (file) fd.append("resume", file);
-      if (resumeText.trim()) fd.append("resumeText", resumeText);
-      const extractRes = await fetch("/api/extract-skills", { method: "POST", body: fd, headers: authHeaders() });
-      const { skills } = await extractRes.json();
-      if (!skills || skills.length === 0) {
-        setJobsLoading(false);
-        return setError("Resume se skills nahi nikal paaye — thoda detail daal ke try kar");
-      }
       const jobsRes = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -368,6 +399,9 @@ export default function ScanPage() {
       });
       const { jobs: found } = await jobsRes.json();
       setJobs(found ?? []);
+      if (!found || found.length === 0) {
+        setError("Koi job nahi mili — location badal kar try kar ya skills update kar.");
+      }
     } catch {
       setError("Jobs search mein locha aa gaya — dobara try kar.");
     } finally {
@@ -564,22 +598,63 @@ export default function ScanPage() {
             <input
               type="file"
               accept=".pdf,.docx,.txt"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                setFile(e.target.files?.[0] ?? null);
+                setEditableSkills("");
+                setSkillsExtracted(false);
+              }}
               className="mb-3 block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand/10 file:px-4 file:py-2 file:font-semibold file:text-brand"
             />
             <p className="mb-2 text-xs text-slate-400">ya paste karo</p>
             <textarea
               value={resumeText}
-              onChange={(e) => setResumeText(e.target.value)}
+              onChange={(e) => {
+                setResumeText(e.target.value);
+                setEditableSkills("");
+                setSkillsExtracted(false);
+              }}
               placeholder="Paste your resume text here…"
               className="h-40 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm focus:border-brand focus:outline-none"
             />
           </div>
 
+          {skillsLoading && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center text-sm text-slate-500">
+              Resume se skills nikal rahe hai... ⏳
+            </div>
+          )}
+
+          {skillsExtracted && !skillsLoading && (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-1 font-display font-semibold">Skills jo mile ✏️</h2>
+              <p className="mb-3 text-xs text-slate-400">
+                Edit kar sakte ho — naye skills add karo ya hatao. Comma se alag karo.
+              </p>
+              <textarea
+                value={editableSkills}
+                onChange={(e) => setEditableSkills(e.target.value)}
+                placeholder="React, Python, Node.js, ..."
+                className="h-28 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm focus:border-brand focus:outline-none"
+              />
+            </div>
+          )}
+
+          {!skillsExtracted && !skillsLoading && (file || resumeText.trim()) && (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-700">
+              Resume se skills nahi nikal paaye — manually daal sakte ho neeche.
+              <textarea
+                value={editableSkills}
+                onChange={(e) => setEditableSkills(e.target.value)}
+                placeholder="React, Python, Node.js, ..."
+                className="mt-3 h-24 w-full resize-y rounded-xl border border-amber-200 p-3 text-sm focus:border-brand focus:outline-none"
+              />
+            </div>
+          )}
+
           <div className="mt-6 text-center">
             <button
               onClick={handleJobsSearch}
-              disabled={jobsLoading}
+              disabled={jobsLoading || skillsLoading}
               className="rounded-xl bg-brand px-10 py-3.5 font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:opacity-50"
             >
               {jobsLoading ? "Jobs dhun rahe hai... 🔍" : "Jobs dhundo 🔍"}

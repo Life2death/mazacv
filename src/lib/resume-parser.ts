@@ -4,12 +4,37 @@ import type { Plan } from "./usage";
 const SECTION_HEADERS = [
   /^(experience|work|employment|professional experience)/i,
   /^(education|academic|qualifications)/i,
-  /^(skills|technical skills|core competencies|expertise)/i,
+  /^(skills|technical skills|core competencies|expertise|technologies|tech stack|programming languages|tools)/i,
   /^(certifications|certificates|licenses)/i,
   /^(projects|personal projects|key projects)/i,
   /^(languages)/i,
   /^(summary|professional summary|profile|about me)/i,
 ];
+
+const COMMON_SKILLS = new Set([
+  "javascript", "typescript", "python", "java", "c#", "c++", "ruby", "go", "rust", "swift",
+  "kotlin", "php", "scala", "perl", "dart", "elixir", "clojure", "haskell", "lua", "r",
+  "react", "angular", "vue", "svelte", "next.js", "nuxt", "node.js", "express", "django",
+  "flask", "spring", "laravel", "rails", "asp.net", "fastapi", "graphql", "rest", "apollo",
+  "tailwind", "bootstrap", "sass", "css", "html", "jquery", "redux", "webpack", "vite",
+  "docker", "kubernetes", "aws", "azure", "gcp", "terraform", "ansible", "jenkins",
+  "github actions", "ci/cd", "gitlab ci", "circleci", "nginx", "apache", "linux", "unix",
+  "postgresql", "mysql", "mongodb", "redis", "elasticsearch", "cassandra", "dynamodb",
+  "sqlite", "mariadb", "oracle", "sql server", "firebase", "supabase",
+  "git", "github", "gitlab", "bitbucket", "jira", "confluence", "slack",
+  "machine learning", "deep learning", "nlp", "computer vision", "tensorflow", "pytorch",
+  "scikit-learn", "pandas", "numpy", "matplotlib", "jupyter", "data science", "data analysis",
+  "react native", "flutter", "android", "ios", "kotlin multi platform",
+  "figma", "sketch", "adobe xd", "photoshop", "illustrator", "ui/ux", "design systems",
+  "agile", "scrum", "kanban", "jira", "confluence", "product management",
+  "api", "microservices", "serverless", "lambda", "cloudformation", "cdn",
+  "security", "oauth", "jwt", "saml", "ssl/tls", "penetration testing",
+  "blockchain", "solidity", "web3", "smart contracts", "ethereum",
+  "testing", "jest", "mocha", "cypress", "selenium", "pytest", "junit", "unit testing", "e2e",
+  "communication", "leadership", "teamwork", "problem solving", "critical thinking",
+  "project management", "time management", "analytical", "attention to detail",
+  "adaptability", "creativity", "collaboration", "decision making", "mentoring",
+]);
 
 /**
  * Parse resume text into JsonResume using section-based heuristics.
@@ -59,13 +84,13 @@ export function heuristicParseResume(resumeText: string): JsonResume {
   }
 
   // Skills section
-  const skillsLines = findSection(sections, ["skills", "technical skills", "core competencies", "expertise"]);
+  const skillsLines = findSection(sections, ["skills", "technical skills", "core competencies", "expertise", "technologies", "tech stack", "programming languages", "tools"]);
   if (skillsLines.length > 0) {
     const allSkills = skillsLines
       .join(", ")
-      .split(/[,•·|;]/)
+      .split(/[,•·|;\n]/)
       .map((s) => s.trim())
-      .filter((s) => s.length > 1);
+      .filter((s) => s.length > 1 && !SECTION_HEADERS.some((re) => re.test(s)));
     const techKeywords: string[] = [];
     const softKeywords: string[] = [];
     for (const sk of allSkills) {
@@ -78,6 +103,28 @@ export function heuristicParseResume(resumeText: string): JsonResume {
     }
     if (techKeywords.length > 0) resume.skills.push({ name: "Technical", keywords: techKeywords.slice(0, 20) });
     if (softKeywords.length > 0) resume.skills.push({ name: "Professional", keywords: softKeywords.slice(0, 10) });
+  }
+
+  // Fallback: scan entire text for common skills when section-based extraction finds nothing
+  if (resume.skills.length === 0 || resume.skills.every((s) => s.keywords.length === 0)) {
+    const textLower = resumeText.toLowerCase();
+    const found = [...COMMON_SKILLS].filter((skill) => {
+      const regex = new RegExp(`\\b${skill.replace(/[.+^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      return regex.test(textLower);
+    });
+    if (found.length > 0) {
+      const tech: string[] = [];
+      const soft: string[] = [];
+      for (const sk of found) {
+        if (["communication", "leadership", "teamwork", "management", "problem solving", "analytical", "adaptability", "creativity", "collaboration", "decision making", "mentoring", "critical thinking", "time management", "attention to detail"].some((w) => sk.includes(w))) {
+          soft.push(sk);
+        } else {
+          tech.push(sk);
+        }
+      }
+      if (tech.length > 0) resume.skills.push({ name: "Technical", keywords: [...new Set(tech)].slice(0, 20) });
+      if (soft.length > 0) resume.skills.push({ name: "Professional", keywords: [...new Set(soft)].slice(0, 10) });
+    }
   }
 
   // Experience section
