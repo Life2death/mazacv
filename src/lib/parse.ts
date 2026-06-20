@@ -22,7 +22,11 @@ export function validateFile(file: { size: number; type: string; name: string })
 
 /**
  * Extract plain text from an uploaded resume file (PDF or DOCX).
- * Runs server-side only (Node runtime) because pdf-parse/mammoth need Buffers.
+ * Runs server-side only (Node runtime) because unpdf/mammoth need Buffers.
+ *
+ * PDF parsing uses unpdf (a serverless build of Mozilla's pdf.js). It throws
+ * typed errors (e.g. InvalidPDFException) on malformed input rather than hanging,
+ * which matters because this path handles untrusted uploads.
  */
 export async function extractText(
   buffer: Buffer,
@@ -31,10 +35,16 @@ export async function extractText(
   const lower = filename.toLowerCase();
 
   if (lower.endsWith(".pdf")) {
-    // Lazy-require keeps pdf-parse out of the client/edge bundle.
-    const pdfParse = (await import("pdf-parse")).default;
-    const data = await pdfParse(buffer);
-    return data.text;
+    // Lazy-import keeps the pdf.js build out of the client/edge bundle.
+    const { extractText: pdfExtractText, getDocumentProxy } = await import("unpdf");
+    try {
+      const pdf = await getDocumentProxy(new Uint8Array(buffer));
+      const { text } = await pdfExtractText(pdf, { mergePages: true });
+      return text;
+    } catch {
+      // Normalize pdf.js's internal exception types into a user-facing message.
+      throw new Error("PDF padha nahi ja saka — file corrupt ya password-protected ho sakti hai.");
+    }
   }
 
   if (lower.endsWith(".docx")) {
