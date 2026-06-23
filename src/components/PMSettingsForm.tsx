@@ -150,6 +150,7 @@ export function PMSettingsForm({ accessToken, onJobsFound }: { accessToken?: str
       if (debug) setDebugInfo(debug);
       if (found && found.length > 0) {
         onJobsFound?.();
+        router.push("/dashboard?tab=queue");
       } else {
         setError("Koi job nahi mili — titles ya location badal ke try karo");
         setShowDebug(true);
