@@ -108,6 +108,8 @@ export interface ResumePage {
   created_at: string;
 }
 
+export type FreshnessTag = "FRESH" | "AGING" | "STALE" | "UNKNOWN";
+
 export interface JobListing {
   id: string;
   canonUrl: string;
@@ -120,7 +122,8 @@ export interface JobListing {
   portal: "Adzuna" | "LinkedIn";
   description: string;
   fitScore: number;
-  freshnessTag: "FRESH" | "AGING" | "STALE" | "UNKNOWN";
+  freshnessTag: FreshnessTag;
+  scoresJson?: Record<string, number>;
 }
 
 export interface RewriteResult {

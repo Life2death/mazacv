@@ -1,54 +1,7 @@
 import type { JobListing } from "./types";
+import { canonicalUrl, scoreJob, freshness } from "./jobScore";
 
 const ADZUNA_API = "https://api.adzuna.com/v1/api/jobs/in/search";
-const FRESH_MAX = 3;
-const AGING_MAX = 7;
-
-export function ageDays(posted: string): number | null {
-  if (!posted) return null;
-
-  let age: number | null = null;
-
-  // ISO-8601
-  try {
-    const d = new Date(posted);
-    if (!isNaN(d.getTime())) {
-      age = Math.floor((Date.now() - d.getTime()) / 86400000);
-    }
-  } catch {
-    // fall through
-  }
-
-  // Plain YYYY-MM-DD
-  if (age === null && /^\d{4}-\d{2}-\d{2}/.test(posted)) {
-    try {
-      const d = new Date(posted.slice(0, 10) + "T00:00:00Z");
-      if (!isNaN(d.getTime())) {
-        age = Math.floor((Date.now() - d.getTime()) / 86400000);
-      }
-    } catch {
-      // fall through
-    }
-  }
-
-  return age;
-}
-
-function freshness(posted: string): JobListing["freshnessTag"] {
-  const age = ageDays(posted);
-  if (age === null) return "UNKNOWN";
-  if (age < 0) return "FRESH";
-  if (age <= FRESH_MAX) return "FRESH";
-  if (age <= AGING_MAX) return "AGING";
-  return "STALE";
-}
-
-function computeFitScore(terms: string[], title: string, description: string): number {
-  if (terms.length === 0) return 0;
-  const text = `${title} ${description}`.toLowerCase();
-  const matched = terms.filter((t) => text.includes(t.toLowerCase()));
-  return Math.round((matched.length / terms.length) * 100);
-}
 
 // Generic terms that add noise to job search queries
 const QUERY_SKIP = new Set([
@@ -99,7 +52,7 @@ function buildQuery(skills: string[], jobTitles?: string[]): string {
 }
 
 interface FetchResult {
-  results: Omit<JobListing, "fitScore" | "freshnessTag">[];
+  results: (Omit<JobListing, "fitScore" | "freshnessTag" | "scoresJson"> & { salaryMin?: number })[];
   error?: string;
   statusCode?: number;
   rawCount?: number;
@@ -152,11 +105,12 @@ async function fetchAdzuna(
           ? `₹${formatSalary(salMin)}${salMax > salMin ? ` - ₹${formatSalary(salMax)}` : ""}`
           : "";
       const created = (item.created as string) ?? "";
+      const jobUrl = (item.redirect_url as string) ?? "";
+      const curie = `adz_${(item.id as string) ?? ""}`;
 
-      const rawId = `adz_${(item.id as string) ?? ""}`;
       return {
-        id: rawId,
-        canonUrl: rawId,
+        id: curie,
+        canonUrl: canonicalUrl(jobUrl) || curie,
         title: (item.title as string) ?? "",
         company:
           typeof compData === "object" ? ((compData as Record<string, unknown>).display_name as string) ?? "" : "",
@@ -164,9 +118,10 @@ async function fetchAdzuna(
           typeof locData === "object" ? ((locData as Record<string, unknown>).display_name as string) ?? location : location,
         salary: salaryText,
         postedAt: created,
-        url: (item.redirect_url as string) ?? "",
+        url: jobUrl,
         portal: "Adzuna" as const,
         description: ((item.description as string) ?? "").slice(0, 500),
+        salaryMin: salMin || undefined,
       };
     });
 
@@ -196,7 +151,7 @@ async function fetchLinkedIn(
     if (!resp.ok) return { results: [], error: `HTTP ${resp.status}`, statusCode: resp.status };
 
     const html = await resp.text();
-    const jobs: Omit<JobListing, "fitScore" | "freshnessTag">[] = [];
+    const jobs: FetchResult["results"] = [];
     const liRegex = /<li[^>]*data-entity-urn="[^"]*:(\d+)"[^>]*>([\s\S]*?)<\/li>/gi;
     let match: RegExpExecArray | null;
 
@@ -224,7 +179,7 @@ async function fetchLinkedIn(
         const liId = `li_${jid}`;
         jobs.push({
           id: liId,
-          canonUrl: liId,
+          canonUrl: canonicalUrl(url) || liId,
           title,
           company,
           location: loc,
@@ -315,23 +270,25 @@ export async function findJobs(
   const allJobs = [...adzunaResult.results, ...linkedinResult.results];
   const totalBeforeFilter = allJobs.length;
 
-  const matchTerms = [
-    ...(options?.jobTitles?.map((t) => t.toLowerCase()) ?? []),
-    ...skills.map((s) => s.toLowerCase()),
-  ].filter(Boolean);
-
   let scored: JobListing[] = allJobs.map((j) => {
-    const tag = freshness(j.postedAt);
-    const fitScore = computeFitScore(matchTerms, j.title, j.description);
-    return { ...j, fitScore, freshnessTag: tag };
+    const fresh = freshness(j.postedAt);
+    const sr = scoreJob({
+      title: j.title,
+      company: j.company,
+      description: j.description,
+      salaryMin: j.salaryMin ?? 0,
+      location: j.location,
+    });
+    const fitScore = Math.max(0, sr.total + fresh.penalty);
+    return { ...j, fitScore, freshnessTag: fresh.tag, scoresJson: sr.breakdown as unknown as Record<string, number> };
   });
 
   if (options?.maxFreshnessDays) {
     const limit = options.maxFreshnessDays;
     scored = scored.filter((j) => {
-      const age = ageDays(j.postedAt);
-      if (age === null) return true;
-      return age <= limit;
+      const fresh = freshness(j.postedAt);
+      if (fresh.ageDays === null) return true;
+      return fresh.ageDays <= limit;
     });
   }
 

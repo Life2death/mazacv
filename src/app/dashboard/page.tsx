@@ -258,10 +258,10 @@ function ApplyTab() {
   );
 }
 
-function SettingsTab({ accessToken }: { accessToken?: string }) {
+function SettingsTab({ accessToken, onJobsFound }: { accessToken?: string; onJobsFound?: () => void }) {
   return (
     <div className="mt-6">
-      <PMSettingsForm accessToken={accessToken} />
+      <PMSettingsForm accessToken={accessToken} onJobsFound={onJobsFound} />
     </div>
   );
 }
@@ -317,7 +317,7 @@ function DashboardContent() {
 
       {activeTab === "queue" && <QueueTab />}
       {activeTab === "apply" && <ApplyTab />}
-      {activeTab === "settings" && <SettingsTab accessToken={session?.access_token} />}
+      {activeTab === "settings" && <SettingsTab accessToken={session?.access_token} onJobsFound={() => setTab("queue")} />}
     </section>
   );
 }

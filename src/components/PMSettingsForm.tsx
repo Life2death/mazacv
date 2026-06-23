@@ -24,7 +24,7 @@ const defaultSettings: JobSettings = {
   maxFreshnessDays: "",
 };
 
-export function PMSettingsForm({ accessToken }: { accessToken?: string }) {
+export function PMSettingsForm({ accessToken, onJobsFound }: { accessToken?: string; onJobsFound?: () => void }) {
   const router = useRouter();
 
   const [settings, setSettings] = useState<JobSettings>(defaultSettings);
@@ -148,7 +148,9 @@ export function PMSettingsForm({ accessToken }: { accessToken?: string }) {
         localStorage.setItem("mazacv_job_results", JSON.stringify(Array.from(canonMap.values())));
       } catch { /* ignore */ }
       if (debug) setDebugInfo(debug);
-      if (!found || found.length === 0) {
+      if (found && found.length > 0) {
+        onJobsFound?.();
+      } else {
         setError("Koi job nahi mili — titles ya location badal ke try karo");
         setShowDebug(true);
       }
