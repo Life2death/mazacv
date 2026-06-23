@@ -50,16 +50,48 @@ function computeFitScore(skills: string[], title: string, description: string): 
   return Math.round((matched.length / skills.length) * 100);
 }
 
+// Generic terms that add noise to job search queries
+const QUERY_SKIP = new Set([
+  "technical", "less", "more", "other", "various", "basic", "general",
+  "and", "or", "for", "the", "with", "via", "using",
+]);
+
 function buildQuery(skills: string[], jobTitles?: string[]): string {
   const titleTerms = (jobTitles ?? [])
     .filter((t) => t.length > 1)
     .slice(0, 2)
     .map((t) => (/\s/.test(t) ? `"${t}"` : t));
 
-  const skillTerms = skills
-    .filter((s) => s.length > 1)
-    .slice(0, 4)
-    .map((t) => (/\s/.test(t) ? `"${t}"` : t));
+  // Flatten and clean skills — handles "category: value1/value2" patterns from resume extractors
+  const candidates: string[] = [];
+  for (const raw of skills) {
+    // If category-prefixed (e.g. "agile frameworks: safe 5.0/6.0"), take right side of colon
+    const payload = raw.includes(":") ? raw.split(":").slice(1).join(":").trim() : raw;
+    // Split on conjunctions and version separators
+    const parts = payload.split(/[&\/]/).map((p) =>
+      p.replace(/[^a-zA-Z0-9 .\-]/g, " ").replace(/\s+/g, " ").trim()
+    );
+    for (let p of parts) {
+      // Strip trailing version numbers like "5.0", "6.0"
+      p = p.replace(/\b\d+\.\d+\b/g, "").trim();
+      if (p.length < 3 || p.length > 35) continue;
+      if (/^\d+\.?\d*$/.test(p)) continue; // pure version string
+      if (QUERY_SKIP.has(p.toLowerCase())) continue;
+      candidates.push(p);
+    }
+  }
+
+  // Deduplicate while preserving order, cap at 6 terms
+  const seen = new Set<string>();
+  const skillTerms: string[] = [];
+  for (const s of candidates) {
+    const key = s.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      skillTerms.push(/\s/.test(s) ? `"${s}"` : s);
+    }
+    if (skillTerms.length >= 6) break;
+  }
 
   const terms = [...titleTerms, ...skillTerms];
   if (terms.length === 0) return "";

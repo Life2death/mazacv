@@ -6,6 +6,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { JobsSection } from "@/components/JobsSection";
 import type { ScoreResult, Portal, CoverLetterResult, TemplateId, JsonResume, JobListing } from "@/lib/types";
+import type { JobSearchDebug } from "@/lib/jobs";
 
 interface ScoreResponse extends ScoreResult {
   resumeText: string;
@@ -91,6 +92,8 @@ export default function ScanPage() {
   const [linkedinOptimized, setLinkedinOptimized] = useState(false);
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobsDebug, setJobsDebug] = useState<JobSearchDebug | null>(null);
+  const [showJobsDebug, setShowJobsDebug] = useState(false);
   const [mode, setMode] = useState<"choose" | "ats" | "jobs">("choose");
   const [editableSkills, setEditableSkills] = useState("");
   const [skillsLoading, setSkillsLoading] = useState(false);
@@ -388,6 +391,8 @@ export default function ScanPage() {
   async function handleJobsSearch() {
     setError("");
     setJobs([]);
+    setJobsDebug(null);
+    setShowJobsDebug(false);
     const skillsStr = editableSkills.trim();
     if (!skillsStr) {
       if (!file && !resumeText.trim())
@@ -405,13 +410,17 @@ export default function ScanPage() {
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ skills, location: "" }),
       });
-      const { jobs: found } = await jobsRes.json();
+      const { jobs: found, debug } = await jobsRes.json();
       setJobs(found ?? []);
+      if (debug) setJobsDebug(debug);
       if (!found || found.length === 0) {
-        setError("Koi job nahi mili — location badal kar try kar ya skills update kar.");
+        setError("Koi job nahi mili — skills ya location badal ke try karo");
+        setShowJobsDebug(true);
       }
-    } catch {
+    } catch (e) {
       setError("Jobs search mein locha aa gaya — dobara try kar.");
+      setJobsDebug({ query: "", location: "", adzunaCount: 0, linkedinCount: 0, totalBeforeFilter: 0, totalAfterFilter: 0, shown: 0, adzunaError: String(e) });
+      setShowJobsDebug(true);
     } finally {
       setJobsLoading(false);
     }
@@ -675,6 +684,43 @@ export default function ScanPage() {
         <p className="mx-auto mt-4 max-w-md rounded-xl bg-red-50 p-3 text-center text-sm text-red-700">
           {error}
         </p>
+      )}
+
+      {jobsDebug && (
+        <div className="mx-auto mt-3 mb-4 max-w-2xl rounded-xl border border-slate-200 bg-slate-50 text-xs">
+          <button
+            onClick={() => setShowJobsDebug((v) => !v)}
+            className="flex w-full items-center justify-between px-4 py-2 font-mono font-semibold text-slate-600 hover:text-slate-900"
+          >
+            <span>🔍 Debug Info {jobs.length > 0 ? `(${jobs.length} jobs found)` : "(0 jobs)"}</span>
+            <span>{showJobsDebug ? "▲ hide" : "▼ show"}</span>
+          </button>
+          {showJobsDebug && (
+            <div className="border-t border-slate-200 px-4 py-3 font-mono space-y-1 text-slate-700">
+              <p><span className="text-slate-400">Query sent:</span> <span className="text-indigo-700 break-all">{jobsDebug.query || "(empty)"}</span></p>
+              <p><span className="text-slate-400">Location:</span> {jobsDebug.location || "(none)"}</p>
+              <hr className="border-slate-200 my-1" />
+              <p>
+                <span className="text-slate-400">Adzuna:</span>{" "}
+                {jobsDebug.adzunaError
+                  ? <span className="text-red-600">Error — {jobsDebug.adzunaError}</span>
+                  : <span className="text-green-700">{jobsDebug.adzunaCount} results{jobsDebug.adzunaTotalMatches !== undefined ? ` (${jobsDebug.adzunaTotalMatches} total on Adzuna)` : ""}</span>
+                }
+              </p>
+              <p>
+                <span className="text-slate-400">LinkedIn:</span>{" "}
+                {jobsDebug.linkedinError
+                  ? <span className="text-red-600">Error — {jobsDebug.linkedinError}</span>
+                  : <span className="text-green-700">{jobsDebug.linkedinCount} results</span>
+                }
+              </p>
+              <hr className="border-slate-200 my-1" />
+              <p><span className="text-slate-400">Before freshness filter:</span> {jobsDebug.totalBeforeFilter}</p>
+              <p><span className="text-slate-400">After freshness filter:</span> {jobsDebug.totalAfterFilter}</p>
+              <p><span className="text-slate-400">Shown (top 3 per source):</span> {jobsDebug.shown}</p>
+            </div>
+          )}
+        </div>
       )}
 
       {mode === "ats" && result && r && (
