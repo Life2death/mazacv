@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import type { Session, User, AuthError } from "@supabase/supabase-js";
 import { supabaseClient } from "@/lib/supabase-client";
 
+const DEV_EMAIL = process.env.NEXT_PUBLIC_DEV_USER_EMAIL;
+
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
@@ -28,6 +30,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Dev bypass — skip Supabase entirely when NEXT_PUBLIC_DEV_USER_EMAIL is set
+    if (DEV_EMAIL) {
+      const mockUser = { id: "dev-user-local", email: DEV_EMAIL } as unknown as User;
+      const mockSession = { access_token: "", user: mockUser } as unknown as Session;
+      setUser(mockUser);
+      setSession(mockSession);
+      setLoading(false);
+      return;
+    }
+
     if (!supabaseClient) {
       setLoading(false);
       return;
