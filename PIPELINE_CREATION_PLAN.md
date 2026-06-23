@@ -198,6 +198,41 @@ scraper/
 
 ---
 
+## 7B. Fit-score explainer — show the user HOW scoring works
+
+**Requirement:** the user must be able to see *why* a job scored what it did. Add a
+**collapsible "Fit score kaise nikalta hai? ℹ️" panel at the bottom of the search-jobs
+page** (the Settings/`PMSettingsForm` screen, below `<JobsSection>`), and the same panel
+on the Queue tab. Collapsed by default; expands to the breakdown below.
+
+**Key message to the user (microcopy):** *"Fit score job ki aapke profile se match
+batata hai — job ke title, company, location, salary aur JD se nikaala jaata hai. Zyada
+score = behtar match."* (i.e. the score describes the **job**, computed from the posting.)
+
+**Factor table to render (mirror `src/lib/jobScore.ts`):**
+
+| Factor | Max | Kis se nikalta hai (source) |
+|---|---|---|
+| Role match | 25 (PM 23) | Job **title** — senior/TPM titles score highest |
+| Governance / SAFe / Scope | 20 | Keyword count in the **JD text** |
+| Domain fit (BFSI) | 15 | Banking/fintech keywords in **JD + company** |
+| Compensation | 18 | **Salary listed** on the posting (unknown → 8) |
+| Location | 10 | Job **location** (Mumbai/Pune 10, remote 8) |
+| Org quality | 10 | **Company** vs tier list (tier-1 BFSI 10) |
+| Freshness penalty | −10 / −100 | AGING (−10) or STALE (−100); FRESH = 0 |
+
+- **Per-job breakdown:** each job card already carries `scores_json` — expose it via an
+  expandable "score breakdown" on the card (or a tooltip) so the user sees the actual
+  per-factor points for *that* job, not just the generic table.
+- **Color legend:** ≥60 green (strong) · 40–59 amber (decent) · <40 grey (weak).
+- **Note (optional display tweak):** the rubric maxes ~98, not 100 — it's a relative
+  ranking scale, not a percentage. If a 0–100 feel is wanted, normalize for display only
+  (`round(fit / 98 * 100)`); does NOT change ranking. Leave raw unless product decides.
+
+**Acceptance:** user can open a panel on the search-jobs page (and Queue) that explains
+the six factors + freshness penalty + color tiers; per-job `scores_json` breakdown is
+viewable on the card. No change to the scoring logic itself.
+
 ## 8. GitHub Action (`.github/workflows/scrape.yml`, this repo)
 
 ```yaml
@@ -276,7 +311,9 @@ later (plus setting limits) is the only change needed to turn monetization on.
 3. Settings autosave → `/api/jobboard/config`; migrate `PMSettingsForm` off localStorage.
 4. `/api/jobboard/refresh` (quota gate = no-op) + `pipeline_runs` insert + `triggerScrape`.
 5. "Fresh jobs leke aao 🔄" button → refresh → redirect to Queue.
-6. Queue banner + `/api/jobboard/run-status` polling + filters (Min-Fit default 40).
+6. Queue banner + `/api/jobboard/run-status` polling + filters (Min-Fit default 40);
+   add the **fit-score explainer panel + per-job `scores_json` breakdown** (Section 7B)
+   to both the search-jobs page and the Queue.
 7. `scraper/` package (copy + de-couple; `store.py` + `run.py`).
 8. `.github/workflows/scrape.yml` + secrets; make repo public for free Actions.
 9. End-to-end: button → Action → rows in Supabase → banner clears → Queue shows jobs.
