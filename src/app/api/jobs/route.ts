@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const salaryMinLPA: number | undefined = body.salaryMinLPA;
     const maxFreshnessDays: number | undefined = body.maxFreshnessDays;
 
-    if (!Array.isArray(skills) || skills.length === 0) {
+    if ((!Array.isArray(skills) || skills.length === 0) && (!jobTitles || jobTitles.length === 0)) {
       return NextResponse.json({ jobs: [] });
     }
 

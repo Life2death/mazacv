@@ -6,8 +6,9 @@ export const runtime = "nodejs";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { userId } = await getSessionUser(req);
     if (!userId) {
@@ -50,7 +51,7 @@ export async function PATCH(
     const { data, error } = await sb
       .from("applications")
       .update(updates)
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", userId)
       .select()
       .single();
@@ -65,8 +66,9 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { userId } = await getSessionUser(req);
     if (!userId) {
@@ -86,7 +88,7 @@ export async function DELETE(
     await sb
       .from("applications")
       .delete()
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", userId);
 
     return NextResponse.json({ deleted: true });

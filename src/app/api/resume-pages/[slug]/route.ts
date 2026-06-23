@@ -5,8 +5,9 @@ export const runtime = "nodejs";
 
 export async function GET(
   req: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
+  const { slug } = await params;
   try {
     const { userId } = await getSessionUser(req);
     if (!userId) {
@@ -26,7 +27,7 @@ export async function GET(
     const { data } = await sb
       .from("resume_pages")
       .select("*")
-      .eq("slug", params.slug)
+      .eq("slug", slug)
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -43,8 +44,9 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
+  const { slug } = await params;
   try {
     const { userId } = await getSessionUser(req);
     if (!userId) {
@@ -71,7 +73,7 @@ export async function PATCH(
     const { data, error } = await sb
       .from("resume_pages")
       .update(updates)
-      .eq("slug", params.slug)
+      .eq("slug", slug)
       .eq("user_id", userId)
       .select()
       .single();
@@ -90,8 +92,9 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
+  const { slug } = await params;
   try {
     const { userId } = await getSessionUser(req);
     if (!userId) {
@@ -111,7 +114,7 @@ export async function DELETE(
     await sb
       .from("resume_pages")
       .delete()
-      .eq("slug", params.slug)
+      .eq("slug", slug)
       .eq("user_id", userId);
 
     return NextResponse.json({ deleted: true });

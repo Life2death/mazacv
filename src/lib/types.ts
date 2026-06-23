@@ -110,6 +110,7 @@ export interface ResumePage {
 
 export interface JobListing {
   id: string;
+  canonUrl: string;
   title: string;
   company: string;
   location: string;

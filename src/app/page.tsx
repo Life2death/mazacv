@@ -21,12 +21,20 @@ export default function LandingPage() {
           and download as PDF or Word.
         </p>
 
-        <Link
-          href="/scan"
-          className="mt-8 rounded-xl bg-brand px-12 py-4 font-display text-lg font-semibold text-white shadow-xl shadow-brand/30 transition hover:bg-brand-dark"
-        >
-          Score nikaal — free!
-        </Link>
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <Link
+            href="/scan"
+            className="rounded-xl bg-brand px-12 py-4 font-display text-lg font-semibold text-white shadow-xl shadow-brand/30 transition hover:bg-brand-dark"
+          >
+            Score nikaal — free!
+          </Link>
+          <Link
+            href="/dashboard?tab=settings"
+            className="rounded-xl bg-brand px-12 py-4 font-display text-lg font-semibold text-white shadow-xl shadow-brand/30 transition hover:bg-brand-dark"
+          >
+            Jobs dhundo 🔍
+          </Link>
+        </div>
       </section>
 
       {/* Trust strip */}

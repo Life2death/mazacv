@@ -43,11 +43,11 @@ function freshness(posted: string): JobListing["freshnessTag"] {
   return "STALE";
 }
 
-function computeFitScore(skills: string[], title: string, description: string): number {
-  if (skills.length === 0) return 0;
+function computeFitScore(terms: string[], title: string, description: string): number {
+  if (terms.length === 0) return 0;
   const text = `${title} ${description}`.toLowerCase();
-  const matched = skills.filter((s) => text.includes(s.toLowerCase()));
-  return Math.round((matched.length / skills.length) * 100);
+  const matched = terms.filter((t) => text.includes(t.toLowerCase()));
+  return Math.round((matched.length / terms.length) * 100);
 }
 
 // Generic terms that add noise to job search queries
@@ -130,7 +130,7 @@ async function fetchAdzuna(
     }
     const resp = await fetch(
       `${url}?${new URLSearchParams(params).toString()}`,
-      { headers: { "User-Agent": "MazaCV/1.0" }, signal: AbortSignal.timeout(8000) }
+      { headers: { "User-Agent": "MazaCV/1.0" }, signal: AbortSignal.timeout(12000) }
     );
 
     if (!resp.ok) {
@@ -153,8 +153,10 @@ async function fetchAdzuna(
           : "";
       const created = (item.created as string) ?? "";
 
+      const rawId = `adz_${(item.id as string) ?? ""}`;
       return {
-        id: `adz_${(item.id as string) ?? ""}`,
+        id: rawId,
+        canonUrl: rawId,
         title: (item.title as string) ?? "",
         company:
           typeof compData === "object" ? ((compData as Record<string, unknown>).display_name as string) ?? "" : "",
@@ -178,26 +180,19 @@ async function fetchLinkedIn(
   query: string,
   location: string
 ): Promise<FetchResult> {
-  try {
-    const params = new URLSearchParams({
-      keywords: query,
-      location: location || "India",
-      start: "0",
-      f_TPR: "r604800",
+  const LI_TIMEOUT = 15000;
+  const baseHeaders = {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+  };
+
+  async function tryFetch(url: string): Promise<FetchResult> {
+    const resp = await fetch(url, {
+      headers: baseHeaders,
+      signal: AbortSignal.timeout(LI_TIMEOUT),
     });
-
-    const resp = await fetch(
-      `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?${params.toString()}`,
-      {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-        signal: AbortSignal.timeout(8000),
-      }
-    );
-
     if (!resp.ok) return { results: [], error: `HTTP ${resp.status}`, statusCode: resp.status };
 
     const html = await resp.text();
@@ -226,8 +221,10 @@ async function fetchLinkedIn(
 
         if (!title || !jid) continue;
 
+        const liId = `li_${jid}`;
         jobs.push({
-          id: `li_${jid}`,
+          id: liId,
+          canonUrl: liId,
           title,
           company,
           location: loc,
@@ -243,6 +240,27 @@ async function fetchLinkedIn(
     }
 
     return { results: jobs };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      keywords: query,
+      location: location || "India",
+      start: "0",
+      f_TPR: "r604800",
+    });
+
+    // Try primary endpoint first
+    const primaryUrl = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?${params.toString()}`;
+    const result = await tryFetch(primaryUrl);
+
+    // If primary fails with 4xx/5xx, try fallback endpoint
+    if (result.error && (result.statusCode ?? 0) >= 400) {
+      const fallbackUrl = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(query)}&location=${encodeURIComponent(location || "India")}`;
+      return await tryFetch(fallbackUrl);
+    }
+
+    return result;
   } catch (e) {
     return { results: [], error: String(e) };
   }
@@ -297,9 +315,14 @@ export async function findJobs(
   const allJobs = [...adzunaResult.results, ...linkedinResult.results];
   const totalBeforeFilter = allJobs.length;
 
+  const matchTerms = [
+    ...(options?.jobTitles?.map((t) => t.toLowerCase()) ?? []),
+    ...skills.map((s) => s.toLowerCase()),
+  ].filter(Boolean);
+
   let scored: JobListing[] = allJobs.map((j) => {
     const tag = freshness(j.postedAt);
-    const fitScore = computeFitScore(skills, j.title, j.description);
+    const fitScore = computeFitScore(matchTerms, j.title, j.description);
     return { ...j, fitScore, freshnessTag: tag };
   });
 
@@ -314,6 +337,16 @@ export async function findJobs(
 
   const totalAfterFilter = scored.length;
 
+  // Dedup by canonUrl — keep highest fitScore
+  const canonMap = new Map<string, JobListing>();
+  for (const job of scored) {
+    const existing = canonMap.get(job.canonUrl);
+    if (!existing || job.fitScore > existing.fitScore) {
+      canonMap.set(job.canonUrl, job);
+    }
+  }
+  scored = Array.from(canonMap.values());
+
   const grouped = new Map<string, JobListing[]>();
   for (const job of scored) {
     const list = grouped.get(job.portal) ?? [];
@@ -324,7 +357,7 @@ export async function findJobs(
   const capped: JobListing[] = [];
   for (const [, jobs] of grouped) {
     jobs.sort((a, b) => b.fitScore - a.fitScore);
-    capped.push(...jobs.slice(0, 3));
+    capped.push(...jobs.slice(0, 5));
   }
 
   capped.sort((a, b) => b.fitScore - a.fitScore);

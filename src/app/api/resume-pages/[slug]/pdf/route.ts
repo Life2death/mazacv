@@ -7,8 +7,9 @@ export const maxDuration = 60;
 
 export async function GET(
   _req: Request,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
+  const { slug } = await params;
   try {
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json({ error: "Not configured." }, { status: 501 });
@@ -23,7 +24,7 @@ export async function GET(
     const { data } = await sb
       .from("resume_pages")
       .select("parsed_resume, template_id, accent_color, published")
-      .eq("slug", params.slug)
+      .eq("slug", slug)
       .maybeSingle();
 
     if (!data || !data.published) {
@@ -39,7 +40,7 @@ export async function GET(
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="resume-${params.slug}.pdf"`,
+        "Content-Disposition": `inline; filename="resume-${slug}.pdf"`,
       },
     });
   } catch (err) {

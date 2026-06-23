@@ -30,7 +30,7 @@ export function NavBar({ showLinks = true }: NavBarProps) {
     ? [
         { label: "Score", href: "/scan" },
         { label: "Tracker", href: "/tracker" },
-        { label: "Jobs", href: "/settings" },
+        { label: "Dashboard", href: "/dashboard" },
         { label: "Pricing", href: "/pricing" },
       ]
     : [
@@ -93,7 +93,7 @@ export function NavBar({ showLinks = true }: NavBarProps) {
                     {user.email}
                   </div>
                   <Link
-                    href="/dashboard"
+                    href="/history"
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
                   >
@@ -172,7 +172,7 @@ export function NavBar({ showLinks = true }: NavBarProps) {
               <>
                 <div className="border-t border-slate-100 pt-2">
                   <div className="px-3 pb-1 text-xs text-slate-400">{user.email}</div>
-                  <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">History</Link>
+                  <Link href="/history" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">History</Link>
                   <Link href="/linkedin" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">LinkedIn</Link>
                   <Link href="/settings" onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50">Job Settings</Link>
                   <button onClick={() => { signOut(); setMobileOpen(false); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-500 transition hover:bg-red-50">Logout</button>

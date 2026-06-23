@@ -1,272 +1,334 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { NavBar } from "@/components/NavBar";
 import { useAuth } from "@/components/AuthProvider";
-import { UpgradeModal } from "@/components/UpgradeModal";
+import { PMSettingsForm } from "@/components/PMSettingsForm";
+import type { JobListing } from "@/lib/types";
 
-interface Scan {
-  id: string;
-  jd: string;
-  resume_text: string;
-  score: number;
-  sub_scores: Record<string, number | null> | null;
-  portal: string;
-  rewritten_text: string | null;
-  created_at: string;
+interface JobEntry extends JobListing {
+  applied?: boolean;
+  appliedDate?: string;
 }
 
-interface ResumePageInfo {
-  slug: string;
-  scan_id: string;
-  published: boolean;
-  created_at: string;
+const TABS = [
+  { key: "queue", label: "Jobs Queue" },
+  { key: "apply", label: "Rapid Apply" },
+  { key: "settings", label: "Settings" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
+const LS_RESULTS_KEY = "mazacv_job_results";
+
+function fitColor(score: number): string {
+  if (score >= 60) return "#16a34a";
+  if (score >= 40) return "#f59e0b";
+  return "#94a3b8";
 }
 
-export default function DashboardPage() {
-  const { user, session } = useAuth();
-  const [scans, setScans] = useState<Scan[]>([]);
-  const [pages, setPages] = useState<Map<string, ResumePageInfo>>(new Map());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [toggling, setToggling] = useState<string | null>(null);
+function freshnessStyle(tag: string): string {
+  if (tag === "FRESH") return "bg-green-100 text-green-700";
+  if (tag === "AGING") return "bg-amber-100 text-amber-700";
+  return "bg-slate-100 text-slate-500";
+}
+
+function loadJobs(): JobEntry[] {
+  try {
+    const raw = localStorage.getItem(LS_RESULTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as JobEntry[];
+      return parsed.map((j) => ({ ...j, canonUrl: j.canonUrl || j.id }));
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveJobs(jobs: JobEntry[]) {
+  try { localStorage.setItem(LS_RESULTS_KEY, JSON.stringify(jobs)); } catch { /* ignore */ }
+}
+
+function StatsBanner() {
+  const [stats, setStats] = useState({ total: 0, applied: 0 });
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    const headers: Record<string, string> = {};
-    if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
+    const all = loadJobs();
+    setStats({ total: all.length, applied: all.filter((j) => j.applied).length });
+  }, []);
 
-    (async () => {
-      try {
-        const [scansRes, pagesRes] = await Promise.all([
-          fetch("/api/scans", { headers }),
-          fetch("/api/resume-pages", { headers }),
-        ]);
-        const scansData = await scansRes.json();
-        const pagesData = await pagesRes.json();
-        setScans(scansData.scans ?? []);
-        const map = new Map<string, ResumePageInfo>();
-        for (const p of pagesData.pages ?? []) {
-          map.set(p.scan_id, p);
-        }
-        setPages(map);
-      } catch {
-        setError("Kuch locha ho gaya. Phirse try kar.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [user, session]);
+  return (
+    <div className="mb-6 flex items-center gap-6 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+      <span className="text-lg">📊</span>
+      <div className="flex gap-6 text-sm">
+        <span>
+          Total jobs:{" "}
+          <span className="font-semibold text-slate-900">{stats.total}</span>
+        </span>
+        <span className="text-slate-300">|</span>
+        <span>
+          Applied:{" "}
+          <span className="font-semibold text-green-600">{stats.applied}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
 
-  async function handleDelete(id: string) {
-    if (!confirm("Yeh scan delete ho jayega. Pakka?")) return;
-    setDeleting(id);
-    const headers: Record<string, string> = {};
-    if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
-    try {
-      const res = await fetch(`/api/scans/${id}`, {
-        method: "DELETE",
-        headers,
-      });
-      if (!res.ok) throw new Error();
-      setScans((prev) => prev.filter((s) => s.id !== id));
-    } catch {
-      setError("Delete nahi ho paya. Phirse try kar.");
-    } finally {
-      setDeleting(null);
+function QueueTab() {
+  const [jobs, setJobs] = useState<JobEntry[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const reload = useCallback(() => { setJobs(loadJobs()); }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (selected.size === jobs.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(jobs.map((j) => j.id)));
     }
   }
 
-  async function handleTogglePublish(scanId: string, pageInfo: ResumePageInfo | undefined) {
-    setToggling(scanId);
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
-    try {
-      if (pageInfo) {
-        const res = await fetch(`/api/resume-pages/${pageInfo.slug}`, {
-          method: "PATCH",
-          headers,
-          body: JSON.stringify({ published: !pageInfo.published }),
-        });
-        if (!res.ok) throw new Error();
-        setPages((prev) => {
-          const next = new Map(prev);
-          const existing = next.get(scanId);
-          if (existing) next.set(scanId, { ...existing, published: !existing.published });
-          return next;
-        });
-      }
-    } catch {
-      setError("Toggle nahi ho paya.");
-    } finally {
-      setToggling(null);
-    }
+  function handleDekho(job: JobEntry) {
+    const updated = jobs.map((j) =>
+      j.id === job.id ? { ...j, applied: true, appliedDate: new Date().toISOString() } : j
+    );
+    setJobs(updated);
+    saveJobs(updated);
+    window.open(job.url, "_blank", "noopener,noreferrer");
   }
 
-  function scoreColor(score: number) {
-    if (score >= 75) return "text-green-600";
-    if (score >= 45) return "text-amber-600";
-    return "text-red-500";
+  function deleteSelected() {
+    const remaining = jobs.filter((j) => !selected.has(j.id) || j.applied);
+    setJobs(remaining);
+    setSelected(new Set());
+    saveJobs(remaining);
   }
 
-  if (!user) {
+  const unappliedCount = jobs.filter((j) => !j.applied).length;
+
+  if (jobs.length === 0) {
     return (
-      <main className="mx-auto min-h-screen max-w-5xl px-4">
-        <NavBar />
-        <section className="flex flex-1 flex-col items-center justify-center py-20 text-center">
-          <div className="text-5xl">🔒</div>
-          <h1 className="mt-4 font-display text-2xl font-extrabold text-slate-900">
-            Login karo, boss!
-          </h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Dashboard sirf logged-in users ke liye hai.
-          </p>
+      <div className="mt-6 text-center">
+        <div className="text-5xl">📋</div>
+        <h2 className="mt-4 font-display text-xl font-extrabold text-slate-900">
+          Abhi koi jobs nahi
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Pehle Settings tab mein job titles bharo aur "Jobs dhundo" dabao.
+        </p>
+        <div className="mt-6 flex items-center justify-center gap-3">
           <Link
-            href="/login"
-            className="mt-6 rounded-xl bg-brand px-8 py-3 font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
+            href="/dashboard?tab=settings"
+            className="rounded-xl bg-brand px-6 py-2.5 font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
           >
-            Login karo
+            Settings mein jao ⚙️
           </Link>
-        </section>
-      </main>
+        </div>
+      </div>
     );
   }
 
   return (
+    <div className="mt-6">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={selected.size === unappliedCount && unappliedCount > 0}
+              onChange={toggleAll}
+              className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+            />
+            Select all
+          </label>
+          <span className="text-xs text-slate-400">
+            {jobs.length} jobs · {jobs.filter((j) => j.applied).length} applied
+          </span>
+        </div>
+        {selected.size > 0 && (
+          <button
+            onClick={deleteSelected}
+            className="rounded-lg bg-red-50 px-4 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+          >
+            Delete ({selected.size})
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        {jobs.map((job) => {
+          const isApplied = job.applied;
+          return (
+            <div
+              key={job.id}
+              className={`rounded-2xl border bg-white p-4 shadow-sm transition ${
+                isApplied
+                  ? "border-green-200 bg-green-50/30"
+                  : selected.has(job.id)
+                    ? "border-brand ring-1 ring-brand/20"
+                    : "border-slate-200"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={selected.has(job.id)}
+                  onChange={() => toggle(job.id)}
+                  disabled={isApplied}
+                  className={`mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-brand focus:ring-brand ${
+                    isApplied ? "cursor-not-allowed opacity-40" : ""
+                  }`}
+                />
+                <div className="flex items-center gap-2">
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                    style={{ backgroundColor: fitColor(job.fitScore) }}
+                  >
+                    {job.fitScore}
+                  </div>
+                  {isApplied ? (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">
+                      Applied ✅
+                    </span>
+                  ) : (
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${freshnessStyle(job.freshnessTag)}`}>
+                      {job.freshnessTag}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className={`truncate font-semibold ${isApplied ? "text-slate-500" : "text-slate-900"}`}>
+                    {job.title}
+                  </h3>
+                  <p className={`text-sm ${isApplied ? "text-slate-400" : "text-slate-500"}`}>{job.company}</p>
+                  <p className={`text-xs ${isApplied ? "text-slate-300" : "text-slate-400"}`}>
+                    {job.location}{job.salary ? ` · ${job.salary}` : ""} · {job.portal}
+                    {isApplied && job.appliedDate && ` · Applied ${new Date(job.appliedDate).toLocaleDateString("en-IN")}`}
+                  </p>
+                </div>
+                {isApplied ? (
+                  <a
+                    href={job.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 rounded-lg bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700 transition hover:bg-green-200"
+                  >
+                    Applied ✅
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => handleDekho(job)}
+                    className="shrink-0 rounded-lg bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand/20"
+                  >
+                    Dekho 👀
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ApplyTab() {
+  return (
+    <div className="mt-6 text-center">
+      <div className="text-5xl">🚀</div>
+      <h2 className="mt-4 font-display text-xl font-extrabold text-slate-900">
+        Queue mein jobs daal
+      </h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Jobs Queue tab mein jobs dekho, phir yahan ek ek karke apply karo.
+      </p>
+    </div>
+  );
+}
+
+function SettingsTab({ accessToken }: { accessToken?: string }) {
+  return (
+    <div className="mt-6">
+      <PMSettingsForm accessToken={accessToken} />
+    </div>
+  );
+}
+
+function DashboardContent() {
+  const { session, loading } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = (searchParams.get("tab") as TabKey) || "queue";
+
+  const activeTab = TABS.find((t) => t.key === tab)?.key ?? "queue";
+
+  function setTab(key: TabKey) {
+    router.replace(`/dashboard?tab=${key}`);
+  }
+
+  useEffect(() => {
+    if (!loading && !session) {
+      router.replace("/login");
+    }
+  }, [session, loading, router]);
+
+  if (loading) return null;
+  if (!session) return null;
+
+  return (
+    <section className="mt-10">
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-2xl font-extrabold text-slate-900">
+          Dashboard
+        </h1>
+      </div>
+
+      <StatsBanner />
+
+      <div className="mt-6 border-b border-slate-200">
+        <div className="flex gap-6">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`pb-3 text-sm font-semibold transition border-b-2 ${
+                activeTab === t.key
+                  ? "border-brand text-brand"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeTab === "queue" && <QueueTab />}
+      {activeTab === "apply" && <ApplyTab />}
+      {activeTab === "settings" && <SettingsTab accessToken={session?.access_token} />}
+    </section>
+  );
+}
+
+export default function DashboardPage() {
+  return (
     <main className="mx-auto min-h-screen max-w-5xl px-4">
       <NavBar />
-
-      <section className="mt-10">
-        <h1 className="font-display text-2xl font-extrabold text-slate-900">
-          Your history
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Pichle saare scores, rewrites, aur downloads ek jagah.
-        </p>
-
-        {loading ? (
-          <p className="mt-8 text-sm text-slate-400">Load ho raha hai…</p>
-        ) : scans.length === 0 ? (
-          <div className="mt-12 text-center">
-            <div className="text-5xl">📄</div>
-            <h2 className="mt-4 font-display text-xl font-extrabold text-slate-900">
-              Abhi tak kuch nahi
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Pehla resume score kar lelo!
-            </p>
-            <Link
-              href="/scan"
-              className="mt-6 inline-flex items-center justify-center rounded-xl bg-brand px-8 py-3 font-display font-semibold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark"
-            >
-              Score nikaal!
-            </Link>
-          </div>
-        ) : (
-          <div className="mt-6 space-y-4">
-            {scans.map((scan) => {
-              const pageInfo = pages.get(scan.id);
-              return (
-                <div
-                  key={scan.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`font-display text-2xl font-extrabold ${scoreColor(scan.score)}`}
-                        >
-                          {scan.score}
-                        </span>
-                        <div className="h-8 w-px bg-slate-200" />
-                        <p className="truncate text-sm font-medium text-slate-900">
-                          {scan.jd.slice(0, 120)}
-                          {scan.jd.length > 120 ? "…" : ""}
-                        </p>
-                      </div>
-                      <p className="mt-1.5 text-xs text-slate-400">
-                        {new Date(scan.created_at).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}{" "}
-                        · {scan.portal}
-                        {scan.rewritten_text ? " · Rewritten" : ""}
-                      </p>
-                    </div>
-                    {pageInfo?.published && (
-                      <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[10px] font-semibold text-green-700">
-                        Published
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Link
-                      href={`/scan?id=${scan.id}`}
-                      className="rounded-lg bg-brand/10 px-3 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand/20"
-                    >
-                      Kholo / Edit karo
-                    </Link>
-                    {pageInfo?.published && (
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(
-                            `${window.location.origin}/r/${pageInfo.slug}`
-                          );
-                        }}
-                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium transition hover:bg-slate-50"
-                      >
-                        Copy link
-                      </button>
-                    )}
-                    {pageInfo && (
-                      <button
-                        onClick={() => handleTogglePublish(scan.id, pageInfo)}
-                        disabled={toggling === scan.id}
-                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:border-amber-200 hover:text-amber-600 disabled:opacity-50"
-                      >
-                        {toggling === scan.id
-                          ? "…"
-                          : pageInfo.published
-                            ? "Unpublish"
-                            : "Republish"}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(scan.id)}
-                      disabled={deleting === scan.id}
-                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-400 transition hover:border-red-200 hover:text-red-500 disabled:opacity-50"
-                    >
-                      {deleting === scan.id ? "…" : "Delete"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {error && (
-          <p className="mt-6 rounded-xl bg-red-50 p-3 text-center text-sm text-red-700">
-            {error}
-          </p>
-        )}
-      </section>
-
-      <UpgradeModal
-        open={showUpgrade}
-        onClose={() => setShowUpgrade(false)}
-      />
+      <Suspense fallback={<div className="mt-10 text-center text-sm text-slate-400">Loading...</div>}>
+        <DashboardContent />
+      </Suspense>
     </main>
   );
 }

@@ -5,8 +5,9 @@ export const runtime = "nodejs";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { userId } = await getSessionUser(req);
     if (!userId) {
@@ -26,7 +27,7 @@ export async function GET(
     const { data } = await sb
       .from("scans")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -43,8 +44,9 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { userId } = await getSessionUser(req);
     if (!userId) {
@@ -70,7 +72,7 @@ export async function PATCH(
       .update({
         rewritten_text: body.rewritten_text ?? null,
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", userId)
       .select()
       .single();
@@ -85,8 +87,9 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { userId } = await getSessionUser(req);
     if (!userId) {
@@ -106,7 +109,7 @@ export async function DELETE(
     await sb
       .from("scans")
       .delete()
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", userId);
 
     return NextResponse.json({ deleted: true });

@@ -160,10 +160,13 @@ Zero-config: missing tables/env → empty list, never crash.
 | `src/app/api/jobboard/config/route.ts` | GET / PUT | read / upsert PM search config |
 | `src/app/api/jobboard/refresh/route.ts` | POST | fire the GitHub Action; return 202 |
 
-### B3 — Dashboard restructure: `src/app/dashboard/page.tsx`
-`/dashboard` becomes the post-login home with tabs (URL-synced
-`?tab=queue|apply|settings`; default `queue`). Keep the existing **resume scans**
-list as a "My Resumes" tab so nothing is lost.
+### B3 — Route restructure: `/dashboard` (job board) + `/history` (scans)
+
+**`/dashboard`** becomes the post-login home with tabs (URL-synced
+`?tab=queue|apply|settings`; default `queue`).
+
+**`/history`** gets the **existing scan history content** (moved from old `/dashboard`).
+Keep the exact same UI — scans list with score, edit, publish, delete.
 
 **Tab 1 — Jobs Queue** (`components/JobQueueTable.tsx`)
 Port of the scraper's HTML report table:
@@ -181,14 +184,21 @@ One job at a time:
   "12 / 48". Empty `description` → ask to paste JD instead of scoring empty.
 
 **Tab 3 — Settings (PM)** (`components/PMSettingsForm.tsx`)
-Simple single-track form: Keywords (comma-sep), Locations (comma-sep CSV), Comp
-floor (LPA), Experience (text). Save → PUT config. Big **"Refresh jobs now 🔄"** →
-POST refresh → toast "Jobs nikalne bhej diya — thodi der mein update hoga". Show
-`updated_at` + last import date.
+**Migration:** extract the form fields from the existing `src/app/settings/page.tsx`
+into this shared component. The existing form already has everything needed:
+Keywords, Target Job Titles, Location, Min Salary (LPA), Max Freshness dropdowns.
+Changes needed:
+- Add save/load to/from `search_config` API (PUT /api/jobboard/config)
+- Keep the existing "Jobs dhundo 🔍" button for instant Adzuna/LinkedIn search
+- Add **"Refresh jobs now 🔄"** button → POST `/api/jobboard/refresh` → toast
+  "Jobs nikalne bhej diya — thodi der mein update hoga"
+- Show `updated_at` + last import date
 
 ### B4 — NavBar
-Logged-in primary CTA → `/dashboard`. Keep `/scan` ("Score a resume"). Redirect the
-old `/settings` job form → `/dashboard?tab=settings`.
+- Replace "Jobs" → `/settings` link with **"Dashboard"** → `/dashboard`
+- Keep "Score" → `/scan`
+- Add "History" → `/history` in the user dropdown menu
+- `/settings` route becomes a **redirect** → `/dashboard?tab=settings`
 
 ### B5 — Trigger the Action (same repo): `triggerScrape()`
 ```
@@ -258,15 +268,37 @@ vars already set; reused to read `job_listings`.
 ---
 
 ## Build order (each step: `npm run build` green, commit, push)
-1. **Schema** — add `job_listings` + `search_config` to `supabase-schema.sql`; run in MazaCV Supabase. *(A)*
-2. **Read path** — `jobboard.ts` + `GET /api/jobboard/jobs` + **Jobs Queue tab** (works on hand-seeded rows). *(B1, B2, B3-tab1)*
-3. **Status path** — `PATCH /api/jobboard/jobs/:id` + **Rapid Apply tab** + "Score against this job". *(B2, B3-tab2)*
-4. **Config path** — `search_config` API + **Settings tab**. *(B2, B3-tab3)*
-5. **Scraper package** — copy + de-couple logic into `scraper/`; write `store.py` + `run.py`; `requirements.txt`. *(scraper/)*
-6. **Action + trigger** — `scrape.yml` + `refresh` route + `triggerScrape()` + Refresh button. *(C, B5)*
-7. **End-to-end** — Refresh → Action → rows in MazaCV Supabase → dashboard → Rapid Apply → Score.
 
-Steps 1-4 are pure Next.js and ship first (queue works on hand-seeded rows), so the
+### ✅ Already merged in master (no build work needed)
+- `/settings` page with full form (keywords, job titles, location, salary, freshness)
+- `findJobs()` with `jobTitles/salaryMinLPA/maxFreshnessDays` options
+- Debug panel on job search results
+- NavBar "Jobs" link (needs update to "Dashboard")
+- `NEXT_PUBLIC_DEV_USER_EMAIL` bypass in AuthProvider
+- `TEMPLATE_REVIEW.md`
+
+### 🔧 Still to build (in order)
+1. **Schema** — add `job_listings` + `search_config` to `supabase-schema.sql`; run in MazaCV Supabase. *(A)*
+
+2. **Route restructure** — create `/history` page (move existing `/dashboard` content there); add `/settings` → `/dashboard?tab=settings` redirect in `next.config.mjs` or a catch-all route. *(B3, B4)*
+
+3. **Settings migration** — extract form from `src/app/settings/page.tsx` into `components/PMSettingsForm.tsx`; wire save/load to `search_config` API (build the API first). *(B2, B3-tab3)*
+
+4. **Read path** — `src/lib/jobboard.ts` + `GET /api/jobboard/jobs` + Jobs Queue tab on `/dashboard`. Works on hand-seeded rows. *(B1, B2, B3-tab1)*
+
+5. **Status path** — `PATCH /api/jobboard/jobs/:id` + Rapid Apply tab + "Score against this job". *(B2, B3-tab2)*
+
+6. **Dashboard page** — write `src/app/dashboard/page.tsx` with tab navigation (Queue, Apply, Settings tabs). *(B3)*
+
+7. **NavBar update** — "Dashboard" CTA replaces "Jobs" link; add "History" to dropdown. *(B4)*
+
+8. **Scraper package** — copy + de-couple logic into `scraper/`; write `store.py` + `run.py`; `requirements.txt`. *(scraper/)*
+
+9. **Action + trigger** — `scrape.yml` + `POST /api/jobboard/refresh` + `triggerScrape()` + Refresh button on Settings tab. *(C, B5)*
+
+10. **End-to-end** — Refresh → Action → rows in MazaCV Supabase → dashboard → Rapid Apply → Score. *(E2E)*
+
+Steps 2-7 are pure Next.js and ship first (queue works on hand-seeded rows), so the
 UI is never blocked on the scraper.
 
 ---
