@@ -35,9 +35,11 @@ export function PMSettingsForm({ accessToken, onJobsFound }: { accessToken?: str
 
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
+  const [refreshLoading, setRefreshLoading] = useState(false);
   const [error, setError] = useState("");
   const [debugInfo, setDebugInfo] = useState<JobSearchDebug | null>(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [showExplainer, setShowExplainer] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -57,13 +59,29 @@ export function PMSettingsForm({ accessToken, onJobsFound }: { accessToken?: str
     const next = { ...settings, ...patch };
     setSettings(next);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    debounceRef.current = setTimeout(async () => {
       try {
         localStorage.setItem(LS_KEY, JSON.stringify(next));
       } catch {
         // ignore
       }
-    }, 500);
+      try {
+        await fetch("/api/jobboard/config", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({
+            jobTitles: next.jobTitles,
+            keywords: next.keywords,
+            locations: next.location,
+            salaryMinLpa: next.salaryMinLPA,
+            maxFreshnessDays: Number(next.maxFreshnessDays) || 0,
+            track: "PM",
+          }),
+        });
+      } catch {
+        // silent — Supabase is optional
+      }
+    }, 1000);
   }
 
   function authHeaders(): Record<string, string> {
@@ -172,6 +190,27 @@ export function PMSettingsForm({ accessToken, onJobsFound }: { accessToken?: str
     router.push(`/scan?jd=${encodeURIComponent(job.description)}`);
   }
 
+  async function handleRefresh() {
+    setError("");
+    setRefreshLoading(true);
+    try {
+      const res = await fetch("/api/jobboard/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Refresh shuru nahi hua — dobara try kar.");
+        return;
+      }
+      router.push("/dashboard?tab=queue");
+    } catch (e) {
+      setError("Refresh mein locha aa gaya — dobara try kar.");
+    } finally {
+      setRefreshLoading(false);
+    }
+  }
+
   return (
     <div>
       {/* Search preferences card */}
@@ -258,6 +297,18 @@ export function PMSettingsForm({ accessToken, onJobsFound }: { accessToken?: str
         </button>
       </div>
 
+      {/* Fresh jobs leke aao button */}
+      <div className="mb-8 text-center">
+        <button
+          onClick={handleRefresh}
+          disabled={refreshLoading}
+          className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-10 py-3.5 font-display font-semibold text-white shadow-lg shadow-indigo-300 transition hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50"
+        >
+          {refreshLoading ? "Jobs nikal rahe hai... 🔄" : "Fresh jobs leke aao 🔄"}
+        </button>
+        <p className="mt-1 text-xs text-slate-400">Pipeline trigger karega (~2 min lagte hai)</p>
+      </div>
+
       {error && (
         <p className="mx-auto mb-4 max-w-md rounded-xl bg-red-50 p-3 text-center text-sm text-red-700">
           {error}
@@ -302,6 +353,78 @@ export function PMSettingsForm({ accessToken, onJobsFound }: { accessToken?: str
       )}
 
       <JobsSection jobs={jobs} loading={jobsLoading} onScoreAgainst={handleScoreAgainst} />
+
+      {/* Fit-score explainer */}
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <button
+          onClick={() => setShowExplainer((v) => !v)}
+          className="flex w-full items-center justify-between text-left"
+        >
+          <h2 className="font-display font-semibold">Fit score kaise nikalta hai? ℹ️</h2>
+          <span className="text-sm text-slate-400">{showExplainer ? "▲ hide" : "▼ show"}</span>
+        </button>
+        {showExplainer && (
+          <div className="mt-4 space-y-3 text-sm text-slate-700">
+            <p className="text-xs text-slate-500">
+              Fit score job ki aapke profile se match batata hai — job ke title, company, location, salary
+              aur JD se nikaala jaata hai. Zyada score = behtar match.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500">
+                    <th className="py-1 pr-4 text-left font-medium">Factor</th>
+                    <th className="py-1 pr-4 text-left font-medium">Max</th>
+                    <th className="py-1 text-left font-medium">Kis se nikalta hai</th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-600">
+                  <tr className="border-b border-slate-100">
+                    <td className="py-1.5 pr-4 font-medium">Role match</td>
+                    <td className="py-1.5 pr-4">23 (PM)</td>
+                    <td className="py-1.5">Job title — senior/TPM titles score highest</td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="py-1.5 pr-4 font-medium">Governance</td>
+                    <td className="py-1.5 pr-4">20</td>
+                    <td className="py-1.5">Keyword count in the JD text</td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="py-1.5 pr-4 font-medium">Domain fit (BFSI)</td>
+                    <td className="py-1.5 pr-4">15</td>
+                    <td className="py-1.5">Banking/fintech keywords in JD + company</td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="py-1.5 pr-4 font-medium">Compensation</td>
+                    <td className="py-1.5 pr-4">18</td>
+                    <td className="py-1.5">Salary listed on posting (unknown → 8)</td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="py-1.5 pr-4 font-medium">Location</td>
+                    <td className="py-1.5 pr-4">10</td>
+                    <td className="py-1.5">Mumbai/Pune 10, remote 8, other metro 6</td>
+                  </tr>
+                  <tr className="border-b border-slate-100">
+                    <td className="py-1.5 pr-4 font-medium">Org quality</td>
+                    <td className="py-1.5 pr-4">10</td>
+                    <td className="py-1.5">Company name vs tier list (tier-1 BFSI 10)</td>
+                  </tr>
+                  <tr>
+                    <td className="py-1.5 pr-4 font-medium text-amber-700">Freshness penalty</td>
+                    <td className="py-1.5 pr-4 text-amber-700">−10</td>
+                    <td className="py-1.5 text-amber-700">AGING (4-7 days) or UNKNOWN; FRESH = 0</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-4 pt-2 text-xs">
+              <span><span className="inline-block h-3 w-3 rounded-full bg-green-600 align-middle" /> ≥60 strong</span>
+              <span><span className="inline-block h-3 w-3 rounded-full bg-amber-500 align-middle" /> 40–59 decent</span>
+              <span><span className="inline-block h-3 w-3 rounded-full bg-slate-400 align-middle" /> &lt;40 weak</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Resume upload at bottom */}
       <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

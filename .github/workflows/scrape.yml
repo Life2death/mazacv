@@ -1,0 +1,46 @@
+name: Job Scrape Pipeline
+
+on:
+  repository_dispatch:
+    types: [scrape-request]
+  schedule:
+    # Daily 07:00 IST = 01:30 UTC
+    - cron: "30 1 * * *"
+  workflow_dispatch:
+    inputs:
+      user_id:
+        description: "Supabase user UUID (leave empty for all enabled users)"
+        required: false
+        type: string
+      run_id:
+        description: "pipeline_runs UUID"
+        required: false
+        type: string
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r scraper/requirements.txt
+
+      - name: Run pipeline
+        run: |
+          python -m scraper.run \
+            --user-id "${{ github.event.client_payload.userId || inputs.user_id }}" \
+            --run-id "${{ github.event.client_payload.runId || inputs.run_id }}" \
+            --track PM
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_API_KEY: ${{ secrets.ADZUNA_API_KEY }}
