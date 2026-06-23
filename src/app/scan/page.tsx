@@ -96,9 +96,17 @@ export default function ScanPage() {
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillsExtracted, setSkillsExtracted] = useState(false);
 
-  // Load scan from history (?id=xxx)
+  // Load scan from history (?id=xxx) or pre-fill JD from job settings (?jd=xxx)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
+    const jdParam = params.get("jd");
+    if (jdParam) {
+      setJd(decodeURIComponent(jdParam));
+      setMode("ats");
+      return;
+    }
+
     const id = params.get("id");
     if (!id) return;
     (async () => {
