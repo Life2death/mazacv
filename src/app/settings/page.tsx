@@ -6,6 +6,7 @@ import { NavBar } from "@/components/NavBar";
 import { useAuth } from "@/components/AuthProvider";
 import { JobsSection } from "@/components/JobsSection";
 import type { JobListing } from "@/lib/types";
+import type { JobSearchDebug } from "@/lib/jobs";
 
 const LS_KEY = "mazacv_job_settings";
 
@@ -38,6 +39,8 @@ export default function SettingsPage() {
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [debugInfo, setDebugInfo] = useState<JobSearchDebug | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -126,6 +129,7 @@ export default function SettingsPage() {
       : undefined;
 
     setJobsLoading(true);
+    setDebugInfo(null);
     try {
       const res = await fetch("/api/jobs", {
         method: "POST",
@@ -138,13 +142,17 @@ export default function SettingsPage() {
           maxFreshnessDays,
         }),
       });
-      const { jobs: found } = await res.json();
+      const { jobs: found, debug } = await res.json();
       setJobs(found ?? []);
+      if (debug) setDebugInfo(debug);
       if (!found || found.length === 0) {
         setError("Koi job nahi mili — skills ya location badal ke try karo");
+        setShowDebug(true);
       }
-    } catch {
+    } catch (e) {
       setError("Jobs search mein locha aa gaya — dobara try kar.");
+      setDebugInfo({ query: "", location: "", adzunaCount: 0, linkedinCount: 0, totalBeforeFilter: 0, totalAfterFilter: 0, shown: 0, adzunaError: String(e) });
+      setShowDebug(true);
     } finally {
       setJobsLoading(false);
     }
@@ -279,9 +287,46 @@ export default function SettingsPage() {
       </div>
 
       {error && (
-        <p className="mx-auto mb-6 max-w-md rounded-xl bg-red-50 p-3 text-center text-sm text-red-700">
+        <p className="mx-auto mb-4 max-w-md rounded-xl bg-red-50 p-3 text-center text-sm text-red-700">
           {error}
         </p>
+      )}
+
+      {debugInfo && (
+        <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 text-xs">
+          <button
+            onClick={() => setShowDebug((v) => !v)}
+            className="flex w-full items-center justify-between px-4 py-2 font-mono font-semibold text-slate-600 hover:text-slate-900"
+          >
+            <span>🔍 Debug Info {jobs.length > 0 ? `(${jobs.length} jobs found)` : "(0 jobs)"}</span>
+            <span>{showDebug ? "▲ hide" : "▼ show"}</span>
+          </button>
+          {showDebug && (
+            <div className="border-t border-slate-200 px-4 py-3 font-mono space-y-1 text-slate-700">
+              <p><span className="text-slate-400">Query sent:</span> <span className="text-indigo-700 break-all">{debugInfo.query || "(empty)"}</span></p>
+              <p><span className="text-slate-400">Location:</span> {debugInfo.location || "(none)"}</p>
+              <hr className="border-slate-200 my-1" />
+              <p>
+                <span className="text-slate-400">Adzuna:</span>{" "}
+                {debugInfo.adzunaError
+                  ? <span className="text-red-600">Error — {debugInfo.adzunaError}</span>
+                  : <span className="text-green-700">{debugInfo.adzunaCount} results{debugInfo.adzunaTotalMatches !== undefined ? ` (${debugInfo.adzunaTotalMatches} total matches on Adzuna)` : ""}</span>
+                }
+              </p>
+              <p>
+                <span className="text-slate-400">LinkedIn:</span>{" "}
+                {debugInfo.linkedinError
+                  ? <span className="text-red-600">Error — {debugInfo.linkedinError}</span>
+                  : <span className="text-green-700">{debugInfo.linkedinCount} results</span>
+                }
+              </p>
+              <hr className="border-slate-200 my-1" />
+              <p><span className="text-slate-400">Before freshness filter:</span> {debugInfo.totalBeforeFilter}</p>
+              <p><span className="text-slate-400">After freshness filter:</span> {debugInfo.totalAfterFilter}</p>
+              <p><span className="text-slate-400">Shown (top 3 per source):</span> {debugInfo.shown}</p>
+            </div>
+          )}
+        </div>
       )}
 
       <JobsSection jobs={jobs} loading={jobsLoading} onScoreAgainst={handleScoreAgainst} />

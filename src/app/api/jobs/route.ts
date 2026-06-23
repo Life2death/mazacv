@@ -19,9 +19,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ jobs: [] });
     }
 
-    const jobs = await findJobs(skills, location, { jobTitles, salaryMinLPA, maxFreshnessDays });
-    return NextResponse.json({ jobs });
-  } catch {
-    return NextResponse.json({ jobs: [] });
+    const { jobs, debug } = await findJobs(skills, location, { jobTitles, salaryMinLPA, maxFreshnessDays });
+    return NextResponse.json({ jobs, debug });
+  } catch (e) {
+    return NextResponse.json({ jobs: [], debug: { error: String(e) } });
   }
 }

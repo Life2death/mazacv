@@ -50,30 +50,69 @@ function computeFitScore(skills: string[], title: string, description: string): 
   return Math.round((matched.length / skills.length) * 100);
 }
 
+// Generic terms that add noise to job search queries
+const QUERY_SKIP = new Set([
+  "technical", "less", "more", "other", "various", "basic", "general",
+  "and", "or", "for", "the", "with", "via", "using",
+]);
+
 function buildQuery(skills: string[], jobTitles?: string[]): string {
   const titleTerms = (jobTitles ?? [])
     .filter((t) => t.length > 1)
     .slice(0, 2)
     .map((t) => (/\s/.test(t) ? `"${t}"` : t));
 
-  const skillTerms = skills
-    .filter((s) => s.length > 1)
-    .slice(0, 4)
-    .map((t) => (/\s/.test(t) ? `"${t}"` : t));
+  // Flatten and clean skills — handles "category: value1/value2" patterns from resume extractors
+  const candidates: string[] = [];
+  for (const raw of skills) {
+    // If category-prefixed (e.g. "agile frameworks: safe 5.0/6.0"), take right side of colon
+    const payload = raw.includes(":") ? raw.split(":").slice(1).join(":").trim() : raw;
+    // Split on conjunctions and version separators
+    const parts = payload.split(/[&\/]/).map((p) =>
+      p.replace(/[^a-zA-Z0-9 .\-]/g, " ").replace(/\s+/g, " ").trim()
+    );
+    for (let p of parts) {
+      // Strip trailing version numbers like "5.0", "6.0"
+      p = p.replace(/\b\d+\.\d+\b/g, "").trim();
+      if (p.length < 3 || p.length > 35) continue;
+      if (/^\d+\.?\d*$/.test(p)) continue; // pure version string
+      if (QUERY_SKIP.has(p.toLowerCase())) continue;
+      candidates.push(p);
+    }
+  }
+
+  // Deduplicate while preserving order, cap at 6 terms
+  const seen = new Set<string>();
+  const skillTerms: string[] = [];
+  for (const s of candidates) {
+    const key = s.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      skillTerms.push(/\s/.test(s) ? `"${s}"` : s);
+    }
+    if (skillTerms.length >= 6) break;
+  }
 
   const terms = [...titleTerms, ...skillTerms];
   if (terms.length === 0) return "";
   return terms.join(" OR ");
 }
 
+interface FetchResult {
+  results: Omit<JobListing, "fitScore" | "freshnessTag">[];
+  error?: string;
+  statusCode?: number;
+  rawCount?: number;
+}
+
 async function fetchAdzuna(
   query: string,
   location: string,
   salaryMin?: number
-): Promise<Omit<JobListing, "fitScore" | "freshnessTag">[]> {
+): Promise<FetchResult> {
   const appId = process.env.ADZUNA_APP_ID;
   const apiKey = process.env.ADZUNA_API_KEY;
-  if (!appId || !apiKey) return [];
+  if (!appId || !apiKey) return { results: [], error: "ADZUNA_APP_ID or ADZUNA_API_KEY not set" };
 
   try {
     const url = `${ADZUNA_API}/1`;
@@ -94,12 +133,16 @@ async function fetchAdzuna(
       { headers: { "User-Agent": "MazaCV/1.0" }, signal: AbortSignal.timeout(8000) }
     );
 
-    if (!resp.ok) return [];
+    if (!resp.ok) {
+      let body = "";
+      try { body = await resp.text(); } catch { /* ignore */ }
+      return { results: [], error: `HTTP ${resp.status}: ${body.slice(0, 200)}`, statusCode: resp.status };
+    }
 
     const data = await resp.json();
     const items: Record<string, unknown>[] = (data as { results?: Record<string, unknown>[] }).results ?? [];
 
-    return items.map((item) => {
+    const results = items.map((item) => {
       const compData = (item.company as Record<string, unknown>) ?? {};
       const locData = (item.location as Record<string, unknown>) ?? {};
       const salMin = (item.salary_min as number) ?? 0;
@@ -124,15 +167,17 @@ async function fetchAdzuna(
         description: ((item.description as string) ?? "").slice(0, 500),
       };
     });
-  } catch {
-    return [];
+
+    return { results, rawCount: (data as { count?: number }).count ?? results.length };
+  } catch (e) {
+    return { results: [], error: String(e) };
   }
 }
 
 async function fetchLinkedIn(
   query: string,
   location: string
-): Promise<Omit<JobListing, "fitScore" | "freshnessTag">[]> {
+): Promise<FetchResult> {
   try {
     const params = new URLSearchParams({
       keywords: query,
@@ -153,7 +198,7 @@ async function fetchLinkedIn(
       }
     );
 
-    if (!resp.ok) return [];
+    if (!resp.ok) return { results: [], error: `HTTP ${resp.status}`, statusCode: resp.status };
 
     const html = await resp.text();
     const jobs: Omit<JobListing, "fitScore" | "freshnessTag">[] = [];
@@ -197,9 +242,9 @@ async function fetchLinkedIn(
       }
     }
 
-    return jobs;
-  } catch {
-    return [];
+    return { results: jobs };
+  } catch (e) {
+    return { results: [], error: String(e) };
   }
 }
 
@@ -212,24 +257,45 @@ function formatSalary(val: number): string {
   return val.toLocaleString("en-IN");
 }
 
+export interface JobSearchDebug {
+  query: string;
+  location: string;
+  adzunaCount: number;
+  adzunaTotalMatches?: number;
+  adzunaError?: string;
+  linkedinCount: number;
+  linkedinError?: string;
+  totalBeforeFilter: number;
+  totalAfterFilter: number;
+  shown: number;
+}
+
 export async function findJobs(
   skills: string[],
   location?: string,
   options?: { jobTitles?: string[]; salaryMinLPA?: number; maxFreshnessDays?: number }
-): Promise<JobListing[]> {
+): Promise<{ jobs: JobListing[]; debug: JobSearchDebug }> {
   const query = buildQuery(skills, options?.jobTitles);
-  if (!query) return [];
+  const loc = location ?? "";
+
+  if (!query) {
+    return {
+      jobs: [],
+      debug: { query: "", location: loc, adzunaCount: 0, linkedinCount: 0, totalBeforeFilter: 0, totalAfterFilter: 0, shown: 0, adzunaError: "Empty query — no skills or titles provided" },
+    };
+  }
 
   const salaryMin = options?.salaryMinLPA && options.salaryMinLPA > 0
     ? options.salaryMinLPA * 100000
     : undefined;
 
-  const [adzunaJobs, linkedinJobs] = await Promise.all([
-    fetchAdzuna(query, location ?? "", salaryMin),
-    fetchLinkedIn(query, location ?? ""),
+  const [adzunaResult, linkedinResult] = await Promise.all([
+    fetchAdzuna(query, loc, salaryMin),
+    fetchLinkedIn(query, loc),
   ]);
 
-  const allJobs = [...adzunaJobs, ...linkedinJobs];
+  const allJobs = [...adzunaResult.results, ...linkedinResult.results];
+  const totalBeforeFilter = allJobs.length;
 
   let scored: JobListing[] = allJobs.map((j) => {
     const tag = freshness(j.postedAt);
@@ -246,6 +312,8 @@ export async function findJobs(
     });
   }
 
+  const totalAfterFilter = scored.length;
+
   const grouped = new Map<string, JobListing[]>();
   for (const job of scored) {
     const list = grouped.get(job.portal) ?? [];
@@ -260,5 +328,20 @@ export async function findJobs(
   }
 
   capped.sort((a, b) => b.fitScore - a.fitScore);
-  return capped;
+
+  return {
+    jobs: capped,
+    debug: {
+      query,
+      location: loc || "India (default)",
+      adzunaCount: adzunaResult.results.length,
+      adzunaTotalMatches: adzunaResult.rawCount,
+      adzunaError: adzunaResult.error,
+      linkedinCount: linkedinResult.results.length,
+      linkedinError: linkedinResult.error,
+      totalBeforeFilter,
+      totalAfterFilter,
+      shown: capped.length,
+    },
+  };
 }
