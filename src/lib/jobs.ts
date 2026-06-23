@@ -4,8 +4,8 @@ const ADZUNA_API = "https://api.adzuna.com/v1/api/jobs/in/search";
 const FRESH_MAX = 3;
 const AGING_MAX = 7;
 
-function freshness(posted: string): JobListing["freshnessTag"] {
-  if (!posted) return "UNKNOWN";
+export function ageDays(posted: string): number | null {
+  if (!posted) return null;
 
   let age: number | null = null;
 
@@ -31,9 +31,13 @@ function freshness(posted: string): JobListing["freshnessTag"] {
     }
   }
 
-  if (age === null) return "UNKNOWN";
+  return age;
+}
 
-  if (age < 0) age = 0;
+function freshness(posted: string): JobListing["freshnessTag"] {
+  const age = ageDays(posted);
+  if (age === null) return "UNKNOWN";
+  if (age < 0) return "FRESH";
   if (age <= FRESH_MAX) return "FRESH";
   if (age <= AGING_MAX) return "AGING";
   return "STALE";
@@ -46,17 +50,26 @@ function computeFitScore(skills: string[], title: string, description: string): 
   return Math.round((matched.length / skills.length) * 100);
 }
 
-function buildQuery(skills: string[]): string {
-  const terms = skills
+function buildQuery(skills: string[], jobTitles?: string[]): string {
+  const titleTerms = (jobTitles ?? [])
+    .filter((t) => t.length > 1)
+    .slice(0, 2)
+    .map((t) => (/\s/.test(t) ? `"${t}"` : t));
+
+  const skillTerms = skills
     .filter((s) => s.length > 1)
-    .slice(0, 6);
+    .slice(0, 4)
+    .map((t) => (/\s/.test(t) ? `"${t}"` : t));
+
+  const terms = [...titleTerms, ...skillTerms];
   if (terms.length === 0) return "";
-  return terms.map((t) => (/\s/.test(t) ? `"${t}"` : t)).join(" OR ");
+  return terms.join(" OR ");
 }
 
 async function fetchAdzuna(
   query: string,
-  location: string
+  location: string,
+  salaryMin?: number
 ): Promise<Omit<JobListing, "fitScore" | "freshnessTag">[]> {
   const appId = process.env.ADZUNA_APP_ID;
   const apiKey = process.env.ADZUNA_API_KEY;
@@ -64,16 +77,20 @@ async function fetchAdzuna(
 
   try {
     const url = `${ADZUNA_API}/1`;
+    const params: Record<string, string> = {
+      app_id: appId,
+      app_key: apiKey,
+      what: query,
+      where: location || "India",
+      results_per_page: "10",
+      sort_by: "date",
+      max_days_old: "30",
+    };
+    if (salaryMin && salaryMin > 0) {
+      params.salary_min = String(salaryMin);
+    }
     const resp = await fetch(
-      `${url}?${new URLSearchParams({
-        app_id: appId,
-        app_key: apiKey,
-        what: query,
-        where: location || "India",
-        results_per_page: "10",
-        sort_by: "date",
-        max_days_old: "30",
-      }).toString()}`,
+      `${url}?${new URLSearchParams(params).toString()}`,
       { headers: { "User-Agent": "MazaCV/1.0" }, signal: AbortSignal.timeout(8000) }
     );
 
@@ -197,23 +214,37 @@ function formatSalary(val: number): string {
 
 export async function findJobs(
   skills: string[],
-  location?: string
+  location?: string,
+  options?: { jobTitles?: string[]; salaryMinLPA?: number; maxFreshnessDays?: number }
 ): Promise<JobListing[]> {
-  const query = buildQuery(skills);
+  const query = buildQuery(skills, options?.jobTitles);
   if (!query) return [];
 
+  const salaryMin = options?.salaryMinLPA && options.salaryMinLPA > 0
+    ? options.salaryMinLPA * 100000
+    : undefined;
+
   const [adzunaJobs, linkedinJobs] = await Promise.all([
-    fetchAdzuna(query, location ?? ""),
+    fetchAdzuna(query, location ?? "", salaryMin),
     fetchLinkedIn(query, location ?? ""),
   ]);
 
   const allJobs = [...adzunaJobs, ...linkedinJobs];
 
-  const scored: JobListing[] = allJobs.map((j) => {
+  let scored: JobListing[] = allJobs.map((j) => {
     const tag = freshness(j.postedAt);
     const fitScore = computeFitScore(skills, j.title, j.description);
     return { ...j, fitScore, freshnessTag: tag };
   });
+
+  if (options?.maxFreshnessDays) {
+    const limit = options.maxFreshnessDays;
+    scored = scored.filter((j) => {
+      const age = ageDays(j.postedAt);
+      if (age === null) return true;
+      return age <= limit;
+    });
+  }
 
   const grouped = new Map<string, JobListing[]>();
   for (const job of scored) {
