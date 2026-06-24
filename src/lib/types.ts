@@ -119,7 +119,7 @@ export interface JobListing {
   salary: string;
   postedAt: string;
   url: string;
-  portal: "Adzuna" | "LinkedIn";
+  portal: "Adzuna" | "LinkedIn" | "Naukri" | "Foundit" | "IIMJobs";
   description: string;
   fitScore: number;
   freshnessTag: FreshnessTag;

@@ -259,7 +259,7 @@ function mapRows(rows: Record<string, unknown>[]): JobListing[] {
     salary: (r.salary as string) ?? "",
     postedAt: (r.posted as string) ?? "",
     url: (r.url as string) ?? "",
-    portal: (r.portal as "Adzuna" | "LinkedIn") ?? "Adzuna",
+    portal: (r.portal as JobListing["portal"]) ?? "Adzuna",
     description: (r.description as string) ?? "",
     fitScore: (r.fit as number) ?? 0,
     freshnessTag: (r.freshness as JobListing["freshnessTag"]) ?? "UNKNOWN",

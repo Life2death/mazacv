@@ -15,7 +15,7 @@ from typing import Any
 import requests
 
 from . import score as sc
-from .portals import fetch_adzuna, fetch_linkedin
+from .portals import fetch_adzuna, fetch_linkedin, fetch_naukri, fetch_foundit, fetch_iimjobs
 from .store import upsert_jobs, update_run
 
 
@@ -47,7 +47,8 @@ def main():
     parser.add_argument("--user-id", required=True, help="Supabase user UUID")
     parser.add_argument("--run-id", required=True, help="pipeline_runs UUID")
     parser.add_argument("--track", default="PM", help="Scoring track (PM/SM/DIR)")
-    parser.add_argument("--portals", nargs="*", default=["Adzuna", "LinkedIn"],
+    parser.add_argument("--portals", nargs="*",
+                        default=["Adzuna", "LinkedIn", "Naukri", "Foundit", "IIMJobs"],
                         help="Portals to scrape")
     args = parser.parse_args()
 
@@ -84,11 +85,28 @@ def main():
     portal_errors: list[str] = []
 
     for portal in args.portals:
+        # Skip cookie portals if their env var is missing
+        cookie_checks = {
+            "Naukri": "NAUKRI_COOKIE",
+            "Foundit": "FOUNDIT_COOKIE",
+            "IIMJobs": "IIMJOBS_COOKIE",
+        }
+        env_key = cookie_checks.get(portal)
+        if env_key and not os.environ.get(env_key):
+            print(f"{portal}: skipped — {env_key} not set")
+            continue
+
         try:
             if portal == "Adzuna":
                 jobs = fetch_adzuna(query, location, salary_min)
             elif portal == "LinkedIn":
                 jobs = fetch_linkedin(query, location)
+            elif portal == "Naukri":
+                jobs = fetch_naukri(query, location, salary_min)
+            elif portal == "Foundit":
+                jobs = fetch_foundit(query, location, salary_min)
+            elif portal == "IIMJobs":
+                jobs = fetch_iimjobs(query, location, salary_min)
             else:
                 print(f"Skipping unsupported portal: {portal}")
                 continue

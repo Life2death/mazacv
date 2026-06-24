@@ -33,6 +33,9 @@ export async function POST(req: Request) {
     }
 
     const portals = ["Adzuna", "LinkedIn"];
+    if (process.env.NAUKRI_COOKIE) portals.push("Naukri");
+    if (process.env.FOUNDIT_COOKIE) portals.push("Foundit");
+    if (process.env.IIMJOBS_COOKIE) portals.push("IIMJobs");
     const runId = await insertRun(userId, portals);
     if (!runId) {
       return NextResponse.json(
