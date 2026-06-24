@@ -129,11 +129,18 @@ def main():
     print(f"After score+dedup: {len(scored)} jobs")
 
     # Upsert to Supabase
-    upsert_jobs(scored, args.user_id, args.track)
+    try:
+        upsert_jobs(scored, args.user_id, args.track)
+        store_ok = True
+    except Exception as e:
+        print(f"ERROR: upsert failed: {e}")
+        store_ok = False
+        portal_errors.append(f"Supabase upsert: {e}")
 
     # Update run status
     error_msg = "; ".join(portal_errors) if portal_errors else ""
-    update_run(args.run_id, "done", jobs_found=len(scored), error=error_msg)
+    status = "done" if store_ok else "error"
+    update_run(args.run_id, status, jobs_found=len(scored), error=error_msg)
 
     print(f"Done. {len(scored)} jobs stored.")
 

@@ -3,9 +3,6 @@ name: Scrape Jobs Pipeline
 on:
   repository_dispatch:
     types: [scrape-request]
-  schedule:
-    - cron: "30 1 * * *"
-  workflow_dispatch: {}
 
 jobs:
   scrape:
@@ -17,6 +14,7 @@ jobs:
           python-version: "3.11"
       - run: pip install -r scraper/requirements.txt
       - run: python -m scraper.run --user-id "${{ github.event.client_payload.userId }}" --run-id "${{ github.event.client_payload.runId }}" --track PM
+        env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}

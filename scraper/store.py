@@ -50,10 +50,9 @@ def upsert_jobs(jobs: list[dict[str, Any]], user_id: str, track: str = "PM"):
 
     for i in range(0, len(rows), 50):
         chunk = rows[i : i + 50]
-        try:
-            requests.post(url, headers=headers, json=chunk, timeout=15)
-        except requests.RequestException:
-            pass  # Partial success is OK
+        resp = requests.post(url, headers=headers, json=chunk, timeout=15)
+        if not resp.ok:
+            raise RuntimeError(f"Supabase upsert failed ({resp.status}): {resp.text[:200]}")
 
 
 def update_run(run_id: str, status: str, jobs_found: int = 0, error: str = ""):
@@ -68,9 +67,11 @@ def update_run(run_id: str, status: str, jobs_found: int = 0, error: str = ""):
     if error:
         payload["error"] = error
     try:
-        requests.patch(url, headers=headers, json=payload, timeout=10)
-    except requests.RequestException:
-        pass
+        resp = requests.patch(url, headers=headers, json=payload, timeout=10)
+        if not resp.ok:
+            print(f"WARN: update_run failed ({resp.status}): {resp.text[:200]}")
+    except requests.RequestException as e:
+        print(f"WARN: update_run request failed: {e}")
 
 
 def _fmt_salary(sal_min: int, sal_max: int) -> str:
