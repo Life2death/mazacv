@@ -99,6 +99,22 @@ promises against ("Your data stays private 🔒").
 
 **Do not ship free-model routing for resume content without the owner choosing (a/b/c).**
 
+### ✅ DECISION (owner, 2026-06-24): Option (c) — free models for ALL actions
+All four AI actions (rewrite, cover letter, linkedin, resume parse) route to OpenRouter
+free models for free-plan users, regardless of PII. Pro stays on Claude. Maximum cost
+savings; accept that free-model providers may log/train on resume text.
+
+**REQUIRED follow-up (blocking, ships WITH this feature — not optional):**
+- **Fix the privacy claims so they're truthful.** Today the landing page (`src/app/page.tsx`)
+  and login page (`src/app/login/page.tsx`) state *"Your data stays private 🔒"*. With
+  option (c) that is no longer accurate for free-tier AI. Update that copy and the privacy
+  policy to disclose that **free-tier AI processing uses third-party models that may retain
+  or train on submitted content**, while Pro keeps data on Anthropic (no training). Shipping
+  option (c) without this copy change = advertising a privacy guarantee the product doesn't
+  honour (trust + DPDP Act exposure).
+- Recommended: a one-line in-product note near the AI action for free users
+  ("Free AI third-party models use karta hai — Pro pe data private rehta hai").
+
 ---
 
 ## 5. Implementation steps
@@ -129,8 +145,9 @@ promises against ("Your data stays private 🔒").
 - **Never let a free-model failure surface as a hard error** — fallback chain ends at
   Anthropic Sonnet.
 - **Pro experience unchanged** — Pro stays on Claude, same models.
-- **Privacy:** resume-bearing calls follow the Section-4 decision; default to the
-  conservative option until the owner picks.
+- **Privacy:** per Section-4 decision (option c), all free-plan actions use free models;
+  the truthful-copy update (landing + login + privacy policy) is a BLOCKING part of this
+  feature, not an optional follow-up.
 - **Quality bar:** if a free model's output for `parse`/`rewrite` is visibly worse,
   prefer correctness over cost — it's fine for a task to be Anthropic-only.
 - **No secrets in code/logs;** OpenRouter key only in env.
